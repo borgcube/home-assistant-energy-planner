@@ -12,6 +12,7 @@ from homeassistant.config import ConfigType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import Event, HomeAssistant, SupportsResponse, callback
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
@@ -132,7 +133,7 @@ async def async_setup_entry(
     )
     try:
         await coordinator.async_config_entry_first_refresh()
-    except UpdateFailed as err:
+    except (ConfigEntryNotReady, UpdateFailed) as err:
         _LOGGER.warning(
             "Price source unavailable while setting up Energy Planner entry %s; "
             "the native entities will recover when the source refreshes: %s",
