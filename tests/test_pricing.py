@@ -103,6 +103,9 @@ def test_preserves_fifteen_minute_entso_resolution() -> None:
     assert timeline.points[1].end_time == datetime.fromisoformat(
         "2026-11-06T00:30:00+01:00"
     )
+    assert timeline.points[2].end_time == datetime.fromisoformat(
+        "2026-11-06T00:45:00+01:00"
+    )
 
 
 def test_rejects_hourly_data_without_a_timezone() -> None:

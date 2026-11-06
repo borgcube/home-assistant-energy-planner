@@ -64,7 +64,7 @@ class PriceTimeline:
 
 
 def parse_price_points(raw_data: Iterable[dict[str, Any]]) -> list[PricePoint]:
-    """Parse common hourly price records without applying a cost model."""
+    """Parse common time-series price records without applying a cost model."""
     parsed: list[tuple[datetime, float]] = []
     for item in raw_data:
         start = _parse_datetime(_required(item, "start_time", "start", "datetime"))
@@ -75,13 +75,21 @@ def parse_price_points(raw_data: Iterable[dict[str, Any]]) -> list[PricePoint]:
         raise ValueError("The configured price sensor has no hourly prices")
 
     parsed.sort(key=lambda point: point[0])
+    positive_gaps = [
+        (current_start - previous_start).total_seconds()
+        for (previous_start, _), (current_start, _) in zip(parsed, parsed[1:])
+        if current_start > previous_start
+    ]
+    final_slot_duration = timedelta(
+        seconds=min(positive_gaps) if positive_gaps else 60 * 60
+    )
     return [
         PricePoint(
             start_time=start,
             end_time=(
                 parsed[index + 1][0]
                 if index + 1 < len(parsed)
-                else start + timedelta(hours=1)
+                else start + final_slot_duration
             ),
             spot_price_per_kwh=spot_price,
             price_per_kwh=spot_price,
