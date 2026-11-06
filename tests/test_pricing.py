@@ -1,10 +1,15 @@
 """Tests for price-source normalization and all-in cost calculation."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 from energy_planner.cost_models import FlatRateCostModel
-from energy_planner.price_adapters import GenericHourlyPriceAdapter
+from energy_planner.planning import AppliancePlanRequest, find_lowest_cost_window
+from energy_planner.price_adapters import (
+    EntsoDynamicPricesAdapter,
+    GenericHourlyPriceAdapter,
+)
+from energy_planner.pricing import PricePoint, PriceTimeline
 
 
 def test_normalizes_price_timeline_data_attribute() -> None:
@@ -51,9 +56,90 @@ def test_normalizes_entso_style_hourly_prices() -> None:
     )
 
 
+def test_normalizes_live_entso_dynamic_prices_shape() -> None:
+    """The live ENTSO integration provides separate today and tomorrow lists."""
+    timeline = EntsoDynamicPricesAdapter().normalize(
+        {
+            "prices_today": [
+                {"time": "2026-11-06 23:00:00+01:00", "price": 0.44847},
+            ],
+            "prices_tomorrow": [
+                {"time": "2026-11-07 00:00:00+01:00", "price": 0.45007},
+                {"time": "2026-11-07 01:00:00+01:00", "price": 0.43582},
+            ],
+        }
+    )
+
+    assert timeline.source_format == "entso_dynamic_prices"
+    assert len(timeline.points) == 3
+    assert timeline.points[0].start_time == datetime.fromisoformat(
+        "2026-11-06T23:00:00+01:00"
+    )
+    assert timeline.points[0].end_time == datetime.fromisoformat(
+        "2026-11-07T00:00:00+01:00"
+    )
+
+
 def test_rejects_hourly_data_without_a_timezone() -> None:
     """Naive timestamps must not silently shift hourly schedules."""
     with pytest.raises(ValueError, match="timezone"):
         GenericHourlyPriceAdapter().normalize(
             {"prices": [{"datetime": "2026-11-06T00:00:00", "value": 0.20}]},
         )
+
+
+def test_finds_the_cheapest_contiguous_window_before_deadline() -> None:
+    """A multi-hour plan must use consecutive slots and respect its deadline."""
+    start = datetime.fromisoformat("2026-11-06T00:00:00+01:00")
+    timeline = PriceTimeline(
+        points=(
+            PricePoint(start, start + timedelta(hours=1), 0.40, 0.40),
+            PricePoint(
+                start + timedelta(hours=1), start + timedelta(hours=2), 0.10, 0.10
+            ),
+            PricePoint(
+                start + timedelta(hours=2), start + timedelta(hours=3), 0.20, 0.20
+            ),
+            PricePoint(
+                start + timedelta(hours=3), start + timedelta(hours=4), 0.50, 0.50
+            ),
+        ),
+        source_format="test",
+    )
+
+    window = find_lowest_cost_window(
+        timeline,
+        AppliancePlanRequest(
+            appliance_id="dishwasher",
+            duration=timedelta(hours=2),
+            deadline=start + timedelta(hours=4),
+            average_power_kw=1.0,
+        ),
+    )
+
+    assert window is not None
+    assert window.start_time == start + timedelta(hours=1)
+    assert window.end_time == start + timedelta(hours=3)
+    assert window.estimated_cost == pytest.approx(0.30)
+
+
+def test_returns_no_window_when_deadline_cannot_be_met() -> None:
+    """A missed deadline must not produce an invalid automatic schedule."""
+    start = datetime.fromisoformat("2026-11-06T00:00:00+01:00")
+    timeline = PriceTimeline(
+        points=(PricePoint(start, start + timedelta(hours=1), 0.20, 0.20),),
+        source_format="test",
+    )
+
+    assert (
+        find_lowest_cost_window(
+            timeline,
+            AppliancePlanRequest(
+                appliance_id="dishwasher",
+                duration=timedelta(hours=2),
+                deadline=start + timedelta(hours=1),
+                average_power_kw=1.0,
+            ),
+        )
+        is None
+    )

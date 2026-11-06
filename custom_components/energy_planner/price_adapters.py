@@ -11,6 +11,41 @@ from .pricing import PriceTimeline, parse_price_points
 
 
 @dataclass(frozen=True, slots=True)
+class EntsoDynamicPricesAdapter:
+    """Adapt the ENTSO Dynamic Prices integration's today/tomorrow attributes."""
+
+    key: str = "entso_dynamic_prices"
+
+    def supports(self, attributes: dict[str, Any]) -> bool:
+        """Recognize the integration's documented hourly price attributes."""
+        return isinstance(attributes.get("prices_today"), list)
+
+    def normalize(self, attributes: dict[str, Any]) -> PriceTimeline:
+        """Merge ENTSO today/tomorrow lists into one chronological timeline."""
+        source_rows = [
+            *attributes.get("prices_today", []),
+            *attributes.get("prices_tomorrow", []),
+        ]
+        if not all(isinstance(row, dict) for row in source_rows):
+            raise ValueError("ENTSO price rows must be objects")
+
+        normalized_rows = [
+            {"start_time": row.get("time"), "price_per_kwh": row.get("price")}
+            for row in source_rows
+        ]
+        # Providers occasionally repeat midnight while publishing tomorrow.
+        unique_rows = {
+            row["start_time"]: row
+            for row in normalized_rows
+            if row["start_time"] is not None
+        }
+        return PriceTimeline(
+            points=tuple(parse_price_points(unique_rows.values())),
+            source_format=self.key,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class GenericHourlyPriceAdapter:
     """Adapt common Home Assistant hourly-price attribute conventions.
 
@@ -64,4 +99,6 @@ class PriceAdapterRegistry:
 
 
 _DATA_KEYS = ("data", "hourly_prices", "prices")
-DEFAULT_PRICE_ADAPTERS = PriceAdapterRegistry((GenericHourlyPriceAdapter(),))
+DEFAULT_PRICE_ADAPTERS = PriceAdapterRegistry(
+    (EntsoDynamicPricesAdapter(), GenericHourlyPriceAdapter())
+)
