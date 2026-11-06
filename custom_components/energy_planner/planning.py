@@ -70,6 +70,31 @@ def find_lowest_cost_window(
     )
 
 
+def find_lowest_price_window(
+    timeline: PriceTimeline,
+    *,
+    duration: timedelta,
+    earliest_start: datetime,
+    deadline: datetime,
+) -> ScheduledWindow | None:
+    """Return the cheapest future window without assuming an appliance.
+
+    A one-kilowatt virtual load makes the returned cost equal to the energy
+    price for the requested duration. This keeps the recommendation useful
+    for automations while leaving appliance power and control out of scope.
+    """
+    return find_lowest_cost_window(
+        timeline,
+        AppliancePlanRequest(
+            appliance_id="price_window",
+            duration=duration,
+            deadline=deadline,
+            average_power_kw=1.0,
+            earliest_start=earliest_start,
+        ),
+    )
+
+
 def _contiguous_windows(
     points: list[PricePoint], duration: timedelta
 ) -> list[tuple[datetime, datetime, tuple[PricePoint, ...]]]:

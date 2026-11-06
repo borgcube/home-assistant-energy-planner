@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
@@ -26,9 +26,14 @@ from .const import (
     CONF_PRICE_ENTITY,
     DOMAIN,
     MODEL_STATUS_PRICE_ONLY,
+    MODEL_STATUS_UNAVAILABLE,
     PLANNER_NAME,
 )
 from .coordinator import EnergyPlannerCoordinator
+from .planning import ScheduledWindow, find_lowest_price_window
+
+PRICE_WINDOW_DURATION = timedelta(hours=1)
+PRICE_WINDOW_HORIZON = timedelta(hours=24)
 
 
 async def async_setup_entry(
@@ -37,7 +42,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Energy Planner sensors."""
-    async_add_entities([AdjustedPriceTimelineSensor(entry.runtime_data, entry)])
+    async_add_entities(
+        [
+            AdjustedPriceTimelineSensor(entry.runtime_data, entry),
+            CheapestPriceWindowSensor(entry.runtime_data, entry),
+        ]
+    )
 
 
 class AdjustedPriceTimelineSensor(
@@ -93,4 +103,89 @@ class AdjustedPriceTimelineSensor(
             ATTR_MODEL_STATUS: MODEL_STATUS_PRICE_ONLY,
             ATTR_SOURCE_ENTITY: source_entity,
             "source_format": self.coordinator.data.source_format,
+        }
+
+
+class CheapestPriceWindowSensor(
+    CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity
+):
+    """Expose the cheapest upcoming one-hour price-only recommendation."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Cheapest 1-hour price window"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:clock-check-outline"
+
+    def __init__(
+        self, coordinator: EnergyPlannerCoordinator, entry: ConfigEntry
+    ) -> None:
+        """Initialize the price-window recommendation sensor."""
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_cheapest_1h_window"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=PLANNER_NAME,
+            manufacturer="Energy Planner",
+            model="Hourly price planner",
+        )
+
+    @property
+    def _window(self) -> ScheduledWindow | None:
+        """Return the cheapest complete future window in the next 24 hours."""
+        timeline = self.coordinator.data
+        if timeline is None:
+            return None
+        now = datetime.now().astimezone()
+        return find_lowest_price_window(
+            timeline,
+            duration=PRICE_WINDOW_DURATION,
+            earliest_start=now,
+            deadline=now + PRICE_WINDOW_HORIZON,
+        )
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the recommended window's start time."""
+        window = self._window
+        return window.start_time if window else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the recommendation without creating a device action."""
+        window = self._window
+        current = self.coordinator.data.current if self.coordinator.data else None
+        source_entity = self._entry.options.get(
+            CONF_PRICE_ENTITY, self._entry.data[CONF_PRICE_ENTITY]
+        )
+        if window is None:
+            return {
+                "model_status": MODEL_STATUS_UNAVAILABLE,
+                "source_entity": source_entity,
+                "source_format": (
+                    self.coordinator.data.source_format
+                    if self.coordinator.data
+                    else None
+                ),
+                "reason": "No complete future price window is available",
+            }
+
+        return {
+            "start_time": window.start_time.isoformat(),
+            "end_time": window.end_time.isoformat(),
+            "duration_hours": (
+                window.end_time - window.start_time
+            ).total_seconds()
+            / 3600,
+            "average_price_per_kwh": window.average_price_per_kwh,
+            "price_difference_vs_current_per_kwh": (
+                current.price_per_kwh - window.average_price_per_kwh
+                if current
+                else None
+            ),
+            "horizon_hours": PRICE_WINDOW_HORIZON.total_seconds() / 3600,
+            "model_status": MODEL_STATUS_PRICE_ONLY,
+            "source_entity": source_entity,
+            "source_format": self.coordinator.data.source_format,
+            "last_updated": datetime.now().astimezone().isoformat(),
         }

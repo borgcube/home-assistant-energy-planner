@@ -6,9 +6,10 @@ grid charging.
 
 ## Status
 
-Foundation implementation in progress. The first delivered slice normalizes
-hourly price data and exposes an adjusted price timeline; battery optimisation,
-calendar planning, and appliance control follow in later slices.
+Foundation implementation in progress. The current slice normalizes hourly
+price data, exposes an adjusted price timeline, and publishes a read-only
+cheapest upcoming one-hour recommendation. Battery optimisation, dashboard
+work, calendar planning, and appliance control follow in later slices.
 
 The project is being structured as a clean, reusable package for eventual HACS
 and Home Assistant Marketplace submission. It intentionally contains no
@@ -42,3 +43,9 @@ cost models, batteries, and solar forecasts remain replaceable.
 The resulting `sensor.energy_planner_adjusted_electricity_price` exposes an
 hourly `data` attribute. Every entry includes `start_time`, `end_time`,
 `spot_price_per_kwh`, and adjusted `price_per_kwh` values.
+
+The integration also creates `sensor.energy_planner_cheapest_1_hour_price_window`.
+Its timestamp is the start of the cheapest complete one-hour window in the
+next 24 hours; attributes include the end time, average price, source, and
+`model_status: price_only`. It is a recommendation only and does not control
+any device.

@@ -4,7 +4,11 @@ from datetime import datetime, timedelta
 
 import pytest
 from energy_planner.cost_models import FlatRateCostModel
-from energy_planner.planning import AppliancePlanRequest, find_lowest_cost_window
+from energy_planner.planning import (
+    AppliancePlanRequest,
+    find_lowest_cost_window,
+    find_lowest_price_window,
+)
 from energy_planner.price_adapters import (
     EntsoDynamicPricesAdapter,
     GenericHourlyPriceAdapter,
@@ -143,3 +147,32 @@ def test_returns_no_window_when_deadline_cannot_be_met() -> None:
         )
         is None
     )
+
+
+def test_finds_cheapest_future_price_window_without_an_appliance() -> None:
+    """Price-only recommendations use the same contiguous-window planner."""
+    start = datetime.fromisoformat("2026-11-06T00:00:00+01:00")
+    timeline = PriceTimeline(
+        points=(
+            PricePoint(start, start + timedelta(hours=1), 0.40, 0.40),
+            PricePoint(
+                start + timedelta(hours=1), start + timedelta(hours=2), 0.10, 0.10
+            ),
+            PricePoint(
+                start + timedelta(hours=2), start + timedelta(hours=3), 0.20, 0.20
+            ),
+        ),
+        source_format="test",
+    )
+
+    window = find_lowest_price_window(
+        timeline,
+        duration=timedelta(hours=1),
+        earliest_start=start,
+        deadline=start + timedelta(hours=3),
+    )
+
+    assert window is not None
+    assert window.start_time == start + timedelta(hours=1)
+    assert window.end_time == start + timedelta(hours=2)
+    assert window.average_price_per_kwh == pytest.approx(0.10)
