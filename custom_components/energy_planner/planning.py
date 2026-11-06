@@ -49,17 +49,21 @@ def find_lowest_cost_window(
     eligible = [
         point
         for point in timeline.points
-        if point.start_time >= earliest_start and point.end_time <= request.deadline
+        if point.start_time >= earliest_start and point.start_time < request.deadline
     ]
-    candidates = _contiguous_windows(eligible, request.duration)
+    candidates = _contiguous_windows(eligible, request.duration, request.deadline)
     if not candidates:
         return None
 
     start, end, points = min(
         candidates,
-        key=lambda candidate: _estimated_cost(candidate[2], request.average_power_kw),
+        key=lambda candidate: _estimated_cost(
+            candidate[2], request.average_power_kw, candidate[0], candidate[1]
+        ),
     )
-    estimated_cost = _estimated_cost(points, request.average_power_kw)
+    estimated_cost = _estimated_cost(
+        points, request.average_power_kw, start, end
+    )
     energy_kwh = request.average_power_kw * (request.duration.total_seconds() / 3600)
     return ScheduledWindow(
         appliance_id=request.appliance_id,
@@ -96,35 +100,44 @@ def find_lowest_price_window(
 
 
 def _contiguous_windows(
-    points: list[PricePoint], duration: timedelta
+    points: list[PricePoint], duration: timedelta, deadline: datetime
 ) -> list[tuple[datetime, datetime, tuple[PricePoint, ...]]]:
-    """Return windows whose source slots exactly cover the requested duration."""
+    """Return windows that cover the requested duration without a price gap."""
     windows: list[tuple[datetime, datetime, tuple[PricePoint, ...]]] = []
     for start_index, start_point in enumerate(points):
         selected: list[PricePoint] = []
-        elapsed = timedelta()
-        previous: PricePoint | None = None
+        candidate_end = start_point.start_time + duration
+        previous_end: datetime | None = None
         for point in points[start_index:]:
-            if previous and previous.end_time != point.start_time:
+            if previous_end and previous_end != point.start_time:
                 break
             selected.append(point)
-            elapsed += point.end_time - point.start_time
-            if elapsed == duration:
-                windows.append(
-                    (start_point.start_time, point.end_time, tuple(selected))
-                )
+            previous_end = point.end_time
+            if candidate_end <= point.end_time:
+                if candidate_end <= deadline:
+                    windows.append(
+                        (start_point.start_time, candidate_end, tuple(selected))
+                    )
                 break
-            if elapsed > duration:
-                break
-            previous = point
     return windows
 
 
-def _estimated_cost(points: tuple[PricePoint, ...], power_kw: float) -> float:
-    """Calculate cost for a fixed-power appliance across execution slots."""
+def _estimated_cost(
+    points: tuple[PricePoint, ...],
+    power_kw: float,
+    window_start: datetime,
+    window_end: datetime,
+) -> float:
+    """Calculate cost for a fixed-power appliance over a possibly partial window."""
     return sum(
         point.price_per_kwh
         * power_kw
-        * ((point.end_time - point.start_time).total_seconds() / 3600)
+        * (
+            (
+                min(point.end_time, window_end)
+                - max(point.start_time, window_start)
+            ).total_seconds()
+            / 3600
+        )
         for point in points
     )

@@ -127,6 +127,38 @@ def test_finds_the_cheapest_contiguous_window_before_deadline() -> None:
     assert window.estimated_cost == pytest.approx(0.30)
 
 
+def test_finds_partial_hour_window_with_weighted_cost() -> None:
+    """A 90-minute plan prices the final half-hour at its hourly rate."""
+    start = datetime.fromisoformat("2026-11-06T00:00:00+01:00")
+    timeline = PriceTimeline(
+        points=(
+            PricePoint(start, start + timedelta(hours=1), 0.40, 0.40),
+            PricePoint(
+                start + timedelta(hours=1), start + timedelta(hours=2), 0.10, 0.10
+            ),
+            PricePoint(
+                start + timedelta(hours=2), start + timedelta(hours=3), 0.20, 0.20
+            ),
+        ),
+        source_format="test",
+    )
+
+    window = find_lowest_cost_window(
+        timeline,
+        AppliancePlanRequest(
+            appliance_id="dishwasher",
+            duration=timedelta(minutes=90),
+            deadline=start + timedelta(hours=3),
+            average_power_kw=1.0,
+        ),
+    )
+
+    assert window is not None
+    assert window.start_time == start + timedelta(hours=1)
+    assert window.end_time == start + timedelta(hours=2, minutes=30)
+    assert window.estimated_cost == pytest.approx(0.20)
+
+
 def test_returns_no_window_when_deadline_cannot_be_met() -> None:
     """A missed deadline must not produce an invalid automatic schedule."""
     start = datetime.fromisoformat("2026-11-06T00:00:00+01:00")

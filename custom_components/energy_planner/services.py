@@ -27,10 +27,10 @@ from .planning import AppliancePlanRequest, ScheduledWindow, find_lowest_cost_wi
 from .pricing import PriceTimeline
 
 
-def _whole_hour_duration(value: int) -> int:
-    """Require durations to align with the normalized hourly price slots."""
-    if value % 60:
-        raise vol.Invalid("duration_minutes must be a whole number of hours")
+def _quarter_hour_duration(value: int) -> int:
+    """Require durations to use the planner's 15-minute precision."""
+    if value % 15:
+        raise vol.Invalid("duration_minutes must use 15-minute increments")
     return value
 
 
@@ -46,8 +46,8 @@ PLAN_APPLIANCE_SCHEMA = vol.Schema(
         ),
         vol.Required(SERVICE_DURATION_MINUTES): vol.All(
             vol.Coerce(int),
-            vol.Range(min=60, max=24 * 60),
-            _whole_hour_duration,
+            vol.Range(min=15, max=24 * 60),
+            _quarter_hour_duration,
         ),
         vol.Required(SERVICE_DEADLINE): cv.datetime,
         vol.Optional(SERVICE_EARLIEST_START): cv.datetime,

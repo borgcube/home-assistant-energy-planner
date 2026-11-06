@@ -56,7 +56,8 @@ the next 24 hours; attributes include the end time, average price, source, and
 any device.
 
 The `energy_planner.plan_appliance` action accepts an appliance label, a
-whole-hour duration, a finish-by deadline, and expected average power. Its
+duration in 15-minute increments, a finish-by deadline, and expected average
+power. Its
 response contains the least-cost contiguous window, estimated cost, and
 estimated saving versus running at the current price. It is explicitly
 `execution_mode: plan_only`; it does not call or schedule any device.

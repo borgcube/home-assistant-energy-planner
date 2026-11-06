@@ -10,13 +10,13 @@ plan_appliance:
         text:
     duration_minutes:
       name: Duration (minutes)
-      description: Required runtime; use a whole number of hourly slots.
+      description: Required runtime in 15-minute increments.
       required: true
       selector:
         number:
-          min: 60
+          min: 15
           max: 1440
-          step: 60
+          step: 15
           mode: box
     deadline:
       name: Finish-by deadline
