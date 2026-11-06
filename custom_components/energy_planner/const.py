@@ -24,3 +24,11 @@ ATTR_LAST_UPDATED: Final = "last_updated"
 
 MODEL_STATUS_PRICE_ONLY: Final = "price_only"
 MODEL_STATUS_UNAVAILABLE: Final = "unavailable"
+
+SERVICE_PLAN_APPLIANCE: Final = "plan_appliance"
+SERVICE_APPLIANCE_ID: Final = "appliance_id"
+SERVICE_DURATION_MINUTES: Final = "duration_minutes"
+SERVICE_DEADLINE: Final = "deadline"
+SERVICE_EARLIEST_START: Final = "earliest_start"
+SERVICE_AVERAGE_POWER_KW: Final = "average_power_kw"
+SERVICE_ENTRY_ID: Final = "entry_id"

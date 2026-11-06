@@ -50,3 +50,9 @@ sensor. Its timestamp is the start of the cheapest complete one-hour window in
 the next 24 hours; attributes include the end time, average price, source, and
 `model_status: price_only`. It is a recommendation only and does not control
 any device.
+
+The `energy_planner.plan_appliance` action accepts an appliance label, a
+whole-hour duration, a finish-by deadline, and expected average power. Its
+response contains the least-cost contiguous window, estimated cost, and
+estimated saving versus running at the current price. It is explicitly
+`execution_mode: plan_only`; it does not call or schedule any device.

@@ -2,16 +2,31 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, SupportsResponse, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import CONF_PRICE_ENTITY, DOMAIN
+from .const import CONF_PRICE_ENTITY, DOMAIN, SERVICE_PLAN_APPLIANCE
 from .coordinator import EnergyPlannerCoordinator
+from .services import PLAN_APPLIANCE_SCHEMA, async_plan_appliance
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 type EnergyPlannerConfigEntry = ConfigEntry[EnergyPlannerCoordinator]
+
+
+async def async_setup(hass: HomeAssistant) -> bool:
+    """Register Energy Planner's read-only planning service."""
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PLAN_APPLIANCE,
+        partial(async_plan_appliance, hass),
+        schema=PLAN_APPLIANCE_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    return True
 
 
 async def async_setup_entry(
