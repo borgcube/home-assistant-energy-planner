@@ -80,13 +80,15 @@ class AdjustedPriceTimelineSensor(
     @property
     def native_value(self) -> float | None:
         """Return the current all-in price where the source covers now."""
-        point = self.coordinator.data.current
+        timeline = self.coordinator.data
+        point = timeline.current if timeline else None
         return point.price_per_kwh if point else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Expose normalized hourly data for the planner and Lovelace card."""
-        current = self.coordinator.data.current
+        timeline = self.coordinator.data
+        current = timeline.current if timeline else None
         source_entity = self._entry.options.get(
             CONF_PRICE_ENTITY, self._entry.data[CONF_PRICE_ENTITY]
         )
@@ -97,15 +99,17 @@ class AdjustedPriceTimelineSensor(
             )
         )
         return {
-            ATTR_DATA: [point.as_dict() for point in self.coordinator.data.points],
+            ATTR_DATA: [point.as_dict() for point in timeline.points]
+            if timeline
+            else [],
             ATTR_CURRENT_ALL_IN_PRICE: current.price_per_kwh if current else None,
             ATTR_CURRENT_SPOT_PRICE: current.spot_price_per_kwh if current else None,
             ATTR_FIXED_MONTHLY_COST: fixed_cost,
             ATTR_LAST_UPDATED: datetime.now().astimezone().isoformat(),
             ATTR_MODEL_STATUS: MODEL_STATUS_PRICE_ONLY,
             ATTR_SOURCE_ENTITY: source_entity,
-            "source_format": self.coordinator.data.source_format,
-            "resolution_minutes": self.coordinator.data.resolution_minutes,
+            "source_format": timeline.source_format if timeline else None,
+            "resolution_minutes": timeline.resolution_minutes if timeline else None,
         }
 
 

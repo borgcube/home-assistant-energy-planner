@@ -89,3 +89,42 @@ def test_last_plan_sensor_exposes_latest_plan_in_native_ui() -> None:
     assert sensor.extra_state_attributes["plan_type"] == "battery_charge"
     assert sensor.extra_state_attributes["target_energy_kwh"] == pytest.approx(3.75)
     assert sensor.extra_state_attributes["resolution_minutes"] == 15
+
+
+def test_adjusted_price_sensor_is_safe_before_price_data_arrives() -> None:
+    """A transient source outage keeps the entity visible and unavailable."""
+    pytest.importorskip("homeassistant")
+    component_path = Path(__file__).parents[1] / "custom_components" / "energy_planner"
+    integration_name = "energy_planner.integration"
+    if integration_name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(
+            integration_name,
+            component_path / "__init__.py",
+            submodule_search_locations=[str(component_path)],
+        )
+        assert spec is not None and spec.loader is not None
+        integration = importlib.util.module_from_spec(spec)
+        sys.modules[integration_name] = integration
+        spec.loader.exec_module(integration)
+    sensor_module = importlib.import_module(f"{integration_name}.sensor")
+    AdjustedPriceTimelineSensor = sensor_module.AdjustedPriceTimelineSensor
+
+    coordinator = SimpleNamespace(
+        data=None,
+        last_update_success=False,
+        async_add_listener=lambda listener: (lambda: None),
+    )
+    entry = SimpleNamespace(
+        entry_id="test-entry",
+        options={},
+        data={
+            "fixed_monthly_cost": 27.98,
+            "price_entity": "sensor.source",
+        },
+    )
+
+    sensor = AdjustedPriceTimelineSensor(coordinator, entry)
+
+    assert sensor.native_value is None
+    assert sensor.extra_state_attributes["data"] == []
+    assert sensor.extra_state_attributes["resolution_minutes"] is None
