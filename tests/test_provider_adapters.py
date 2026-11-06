@@ -93,6 +93,24 @@ def test_enphase_adapter_rejects_malformed_values() -> None:
     )
 
 
+def test_enphase_adapter_accepts_fractional_soc_with_percent_unit() -> None:
+    hass = SimpleNamespace(
+        states=States(
+            {
+                "sensor.soc": state("0.82", "%"),
+                "sensor.capacity": state("10", "kWh"),
+            }
+        )
+    )
+
+    snapshot = asyncio.run(
+        EnphaseBatteryAdapter(hass, "sensor.soc", "sensor.capacity").async_snapshot()
+    )
+
+    assert snapshot is not None
+    assert snapshot.state_of_charge == pytest.approx(0.82)
+
+
 def test_forecast_solar_converts_response_and_preserves_timezone_intervals() -> None:
     response = {
         "wh_period": {

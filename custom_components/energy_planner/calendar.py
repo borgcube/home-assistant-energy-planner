@@ -44,10 +44,23 @@ def _format_euro(value: Any) -> str | None:
 
 def _plan_description(plan: dict[str, Any]) -> str:
     """Return useful context for the native calendar event."""
+    execution_mode = plan.get("execution_mode", "plan_only")
+    if execution_mode == "plan_only":
+        execution_note = "Plan-only recommendation; no device control is performed."
+    elif execution_mode == "notify_at_start":
+        execution_note = (
+            "A notification is delivered at the planned start; no device control "
+            "is performed."
+        )
+    else:
+        execution_note = (
+            "Automatic mode is guarded by an explicit verified delayed-start profile."
+        )
     lines = [
-        "Price-only recommendation; no device control is performed.",
+        execution_note,
+        f"Status: {plan.get('status', 'unknown')}",
         f"Model: {plan.get('model_status', 'unknown')}",
-        f"Execution: {plan.get('execution_mode', 'plan_only')}",
+        f"Execution: {execution_mode}",
     ]
 
     if plan.get("target_energy_kwh") is not None:
@@ -76,7 +89,11 @@ def plan_to_calendar_event(
     plan: dict[str, Any] | None, entry_id: str
 ) -> CalendarEvent | None:
     """Convert a recommended plan response into a native calendar event."""
-    if not plan or plan.get("status") != "recommended":
+    if not plan or plan.get("status") not in {
+        "recommended",
+        "scheduled",
+        "running",
+    }:
         return None
 
     start = _parse_plan_datetime(plan.get("start_time"))
@@ -130,9 +147,7 @@ class EnergyPlannerCalendar(
     @override
     def event(self) -> CalendarEvent | None:
         """Return the latest recommended plan event."""
-        return plan_to_calendar_event(
-            self.coordinator.last_plan, self._entry.entry_id
-        )
+        return plan_to_calendar_event(self.coordinator.last_plan, self._entry.entry_id)
 
     @override
     async def async_get_events(

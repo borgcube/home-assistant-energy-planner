@@ -92,7 +92,9 @@ def _parse_soc(state: Any) -> float | None:
     value = _number(state)
     if value is None:
         return None
-    if _unit(state) in {"%", "percent", "percentage"} or value > 1:
+    if _unit(state) in {"%", "percent", "percentage"}:
+        return value / 100 if value > 1 else value if value >= 0 else None
+    if value > 1:
         return value / 100 if 0 <= value <= 100 else None
     return value if 0 <= value <= 1 else None
 

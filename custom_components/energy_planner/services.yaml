@@ -89,3 +89,139 @@ plan_battery_charge:
       required: false
       selector:
         text:
+
+save_appliance_profile:
+  name: Save appliance profile
+  description: Save a reusable appliance definition; saving never starts a device.
+  fields:
+    profile_id:
+      name: Profile ID
+      description: Stable identifier used by plan_appliance_profile.
+      required: true
+      selector:
+        text:
+    name:
+      name: Display name
+      required: true
+      selector:
+        text:
+    duration_minutes:
+      name: Duration (minutes)
+      required: true
+      selector:
+        number:
+          min: 15
+          max: 1440
+          step: 15
+          mode: box
+    average_power_kw:
+      name: Average power (kW)
+      required: true
+      selector:
+        number:
+          min: 0.001
+          max: 100
+          step: 0.001
+          mode: box
+    execution_mode:
+      name: Execution mode
+      description: Plan only, notify at start, or a strictly verified delayed-start action.
+      required: false
+      selector:
+        select:
+          options:
+            - plan_only
+            - notify_at_start
+            - automatic
+    start_entity:
+      name: Delayed-start entity
+      required: false
+      selector:
+        entity: {}
+    start_service:
+      name: Delayed-start service
+      description: domain.service for a verified native programme or delayed-start action.
+      required: false
+      selector:
+        text:
+    service_data:
+      name: Service data
+      required: false
+      selector:
+        object: {}
+    verified_delayed_start:
+      name: Verified delayed-start capability
+      required: false
+      selector:
+        boolean: {}
+    enabled:
+      name: Enabled
+      required: false
+      selector:
+        boolean: {}
+    power_entity:
+      name: Power-monitoring entity
+      description: Required for automatic mode; it only blocks an already-running load.
+      required: false
+      selector:
+        entity:
+          domain: sensor
+    power_threshold_w:
+      name: Active-load threshold (W)
+      required: false
+      selector:
+        number:
+          min: 0.1
+          max: 100000
+          step: 1
+          mode: box
+    load_group:
+      name: Load group
+      required: false
+      selector:
+        text: {}
+    entry_id:
+      name: Energy Planner entry ID
+      required: false
+      selector:
+        text:
+
+remove_appliance_profile:
+  name: Remove appliance profile
+  description: Remove a saved profile without changing any device.
+  fields:
+    profile_id:
+      name: Profile ID
+      required: true
+      selector:
+        text:
+    entry_id:
+      name: Energy Planner entry ID
+      required: false
+      selector:
+        text:
+
+plan_appliance_profile:
+  name: Plan appliance profile
+  description: Plan a saved profile and optionally notify or run its verified delayed-start action.
+  fields:
+    profile_id:
+      name: Profile ID
+      required: true
+      selector:
+        text:
+    deadline:
+      name: Finish-by deadline
+      required: true
+      selector:
+        datetime: {}
+    earliest_start:
+      name: Earliest start
+      required: false
+      selector:
+        datetime: {}
+    entry_id:
+      name: Energy Planner entry ID
+      required: false
+      selector:
+        text:

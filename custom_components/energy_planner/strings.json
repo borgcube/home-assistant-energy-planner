@@ -3,12 +3,24 @@
     "step": {
       "user": {
         "title": "Energy Planner",
-        "description": "Choose the hourly electricity-price sensor and configure variable price adjustments.",
+        "description": "Choose the electricity-price sensor, tariff settings, and optional battery or solar context.",
         "data": {
           "price_entity": "Hourly electricity price sensor",
           "supplier_markup": "Supplier markup (EUR/kWh)",
           "variable_grid_cost": "Variable grid and tax cost (EUR/kWh)",
-          "fixed_monthly_cost": "Fixed monthly electricity cost (EUR)"
+          "fixed_monthly_cost": "Fixed monthly electricity cost (EUR)",
+          "tariff_mode": "Tariff model",
+          "tou_peak_grid_cost": "Time-of-use peak cost (EUR/kWh)",
+          "tou_offpeak_grid_cost": "Time-of-use off-peak cost (EUR/kWh)",
+          "tou_peak_start_hour": "Peak start hour",
+          "tou_peak_end_hour": "Peak end hour",
+          "export_rate": "Export compensation (EUR/kWh)",
+          "battery_soc_entity": "Battery state-of-charge sensor",
+          "battery_capacity_entity": "Battery capacity sensor",
+          "battery_charge_power_entity": "Battery charge power sensor",
+          "battery_discharge_power_entity": "Battery discharge power sensor",
+          "battery_reserve_percent": "Battery reserve (%)",
+          "forecast_solar_entry": "Forecast.Solar entry"
         }
       }
     },
@@ -24,7 +36,19 @@
           "price_entity": "Hourly electricity price sensor",
           "supplier_markup": "Supplier markup (EUR/kWh)",
           "variable_grid_cost": "Variable grid and tax cost (EUR/kWh)",
-          "fixed_monthly_cost": "Fixed monthly electricity cost (EUR)"
+          "fixed_monthly_cost": "Fixed monthly electricity cost (EUR)",
+          "tariff_mode": "Tariff model",
+          "tou_peak_grid_cost": "Time-of-use peak cost (EUR/kWh)",
+          "tou_offpeak_grid_cost": "Time-of-use off-peak cost (EUR/kWh)",
+          "tou_peak_start_hour": "Peak start hour",
+          "tou_peak_end_hour": "Peak end hour",
+          "export_rate": "Export compensation (EUR/kWh)",
+          "battery_soc_entity": "Battery state-of-charge sensor",
+          "battery_capacity_entity": "Battery capacity sensor",
+          "battery_charge_power_entity": "Battery charge power sensor",
+          "battery_discharge_power_entity": "Battery discharge power sensor",
+          "battery_reserve_percent": "Battery reserve (%)",
+          "forecast_solar_entry": "Forecast.Solar entry"
         }
       }
     }

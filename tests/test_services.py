@@ -152,3 +152,31 @@ def test_battery_plan_schema_and_response_are_price_only() -> None:
     assert response["model_status"] == "price_only"
     assert response["start_time"] == "2026-11-06T01:00:00+01:00"
     assert response["end_time"] == "2026-11-06T02:30:00+01:00"
+
+
+def test_profile_services_keep_plan_only_as_the_default() -> None:
+    """Reusable profiles default to plan-only and accept notification mode."""
+    pytest.importorskip("homeassistant")
+    from energy_planner.services import (
+        PLAN_APPLIANCE_PROFILE_SCHEMA,
+        SAVE_APPLIANCE_PROFILE_SCHEMA,
+    )
+
+    profile = SAVE_APPLIANCE_PROFILE_SCHEMA(
+        {
+            "profile_id": "dishwasher",
+            "name": "Dishwasher",
+            "duration_minutes": 90,
+            "average_power_kw": 1.0,
+        }
+    )
+    assert profile["execution_mode"] == "plan_only"
+    assert profile["verified_delayed_start"] is False
+
+    plan = PLAN_APPLIANCE_PROFILE_SCHEMA(
+        {
+            "profile_id": "dishwasher",
+            "deadline": "2026-11-06T04:00:00+01:00",
+        }
+    )
+    assert plan["profile_id"] == "dishwasher"

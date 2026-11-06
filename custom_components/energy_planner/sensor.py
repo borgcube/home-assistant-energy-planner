@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import EnergyPlannerConfigEntry
 from .const import (
     ATTR_CURRENT_ALL_IN_PRICE,
+    ATTR_CURRENT_EXPORT_PRICE,
     ATTR_CURRENT_SPOT_PRICE,
     ATTR_DATA,
     ATTR_FIXED_MONTHLY_COST,
@@ -48,6 +49,10 @@ async def async_setup_entry(
             CheapestPriceWindowSensor(entry.runtime_data, entry),
             FixedMonthlyCostSensor(entry.runtime_data, entry),
             LastPlanSensor(entry.runtime_data, entry),
+            PlanHistorySensor(entry.runtime_data, entry),
+            ApplianceProfilesSensor(entry.runtime_data, entry),
+            BatteryContextSensor(entry.runtime_data, entry),
+            SolarForecastSensor(entry.runtime_data, entry),
         ]
     )
 
@@ -98,6 +103,12 @@ class AdjustedPriceTimelineSensor(
                 self._entry.data[CONF_FIXED_MONTHLY_COST],
             )
         )
+        export_price = None
+        cost_model = getattr(self.coordinator, "cost_model", None)
+        if current and cost_model is not None:
+            export_fn = getattr(cost_model, "export_price", None)
+            if export_fn is not None:
+                export_price = export_fn(current.spot_price_per_kwh, current.start_time)
         return {
             ATTR_DATA: [point.as_dict() for point in timeline.points]
             if timeline
@@ -106,7 +117,10 @@ class AdjustedPriceTimelineSensor(
             ATTR_CURRENT_SPOT_PRICE: current.spot_price_per_kwh if current else None,
             ATTR_FIXED_MONTHLY_COST: fixed_cost,
             ATTR_LAST_UPDATED: datetime.now().astimezone().isoformat(),
-            ATTR_MODEL_STATUS: MODEL_STATUS_PRICE_ONLY,
+            ATTR_MODEL_STATUS: getattr(
+                self.coordinator, "model_status", MODEL_STATUS_PRICE_ONLY
+            ),
+            ATTR_CURRENT_EXPORT_PRICE: export_price,
             ATTR_SOURCE_ENTITY: source_entity,
             "source_format": timeline.source_format if timeline else None,
             "resolution_minutes": timeline.resolution_minutes if timeline else None,
@@ -185,9 +199,7 @@ class CheapestPriceWindowSensor(
         return {
             "start_time": window.start_time.isoformat(),
             "end_time": window.end_time.isoformat(),
-            "duration_hours": (
-                window.end_time - window.start_time
-            ).total_seconds()
+            "duration_hours": (window.end_time - window.start_time).total_seconds()
             / 3600,
             "average_price_per_kwh": window.average_price_per_kwh,
             "price_difference_vs_current_per_kwh": (
@@ -196,7 +208,9 @@ class CheapestPriceWindowSensor(
                 else None
             ),
             "horizon_hours": PRICE_WINDOW_HORIZON.total_seconds() / 3600,
-            "model_status": MODEL_STATUS_PRICE_ONLY,
+            "model_status": getattr(
+                self.coordinator, "model_status", MODEL_STATUS_PRICE_ONLY
+            ),
             "source_entity": source_entity,
             "source_format": self.coordinator.data.source_format,
             "resolution_minutes": self.coordinator.data.resolution_minutes,
@@ -204,9 +218,7 @@ class CheapestPriceWindowSensor(
         }
 
 
-class FixedMonthlyCostSensor(
-    CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity
-):
+class FixedMonthlyCostSensor(CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity):
     """Expose fixed electricity charges separately from hourly prices."""
 
     _attr_has_entity_name = True
@@ -247,7 +259,9 @@ class FixedMonthlyCostSensor(
         )
         return {
             "billing_period": "month",
-            "model_status": MODEL_STATUS_PRICE_ONLY,
+            "model_status": getattr(
+                self.coordinator, "model_status", MODEL_STATUS_PRICE_ONLY
+            ),
             "source_entity": source_entity,
             "last_updated": datetime.now().astimezone().isoformat(),
         }
@@ -294,4 +308,178 @@ class LastPlanSensor(CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity):
         return {
             **self.coordinator.last_plan,
             "last_plan_updated": datetime.now().astimezone().isoformat(),
+        }
+
+
+class PlanHistorySensor(CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity):
+    """Expose recent persisted plans for dashboards and automations."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Plan history"
+    _attr_icon = "mdi:history"
+
+    def __init__(
+        self, coordinator: EnergyPlannerCoordinator, entry: ConfigEntry
+    ) -> None:
+        """Initialize the plan history sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_plan_history"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=PLANNER_NAME,
+            manufacturer="Energy Planner",
+            model="Hourly price planner",
+        )
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of retained plans."""
+        return len(self.coordinator.plan_history)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return a bounded, JSON-safe history for native cards."""
+        return {
+            "plans": self.coordinator.plan_history[:20],
+            "retained_plan_count": len(self.coordinator.plan_history),
+            "last_updated": datetime.now().astimezone().isoformat(),
+        }
+
+
+class ApplianceProfilesSensor(
+    CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity
+):
+    """Expose saved appliance profiles in the native UI."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Appliance profiles"
+    _attr_icon = "mdi:chef-hat"
+
+    def __init__(
+        self, coordinator: EnergyPlannerCoordinator, entry: ConfigEntry
+    ) -> None:
+        """Initialize the profile sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_appliance_profiles"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=PLANNER_NAME,
+            manufacturer="Energy Planner",
+            model="Hourly price planner",
+        )
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of saved profiles."""
+        return len(self.coordinator.profiles)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return profile definitions without exposing credentials."""
+        return {
+            "profiles": {
+                profile_id: profile.as_dict()
+                for profile_id, profile in self.coordinator.profiles.items()
+            },
+            "last_updated": datetime.now().astimezone().isoformat(),
+        }
+
+
+class BatteryContextSensor(CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity):
+    """Expose optional Enphase-compatible battery context."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Battery context"
+    _attr_native_unit_of_measurement = "%"
+    _attr_icon = "mdi:battery-medium"
+
+    def __init__(
+        self, coordinator: EnergyPlannerCoordinator, entry: ConfigEntry
+    ) -> None:
+        """Initialize the battery context sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_battery_context"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=PLANNER_NAME,
+            manufacturer="Energy Planner",
+            model="Hourly price planner",
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        """Return state of charge as a percentage."""
+        snapshot = self.coordinator.battery_snapshot
+        return snapshot.state_of_charge * 100 if snapshot else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose capacity and reserve context."""
+        snapshot = self.coordinator.battery_snapshot
+        if snapshot is None:
+            return {
+                "model_status": getattr(
+                    self.coordinator, "model_status", MODEL_STATUS_PRICE_ONLY
+                ),
+                "available": False,
+            }
+        return {
+            "available": True,
+            "usable_capacity_kwh": snapshot.usable_capacity_kwh,
+            "reserve_percent": snapshot.reserve_percent,
+            "charging_power_kw": snapshot.charging_power_kw,
+            "discharging_power_kw": snapshot.discharging_power_kw,
+            "captured_at": snapshot.captured_at.isoformat(),
+            "model_status": getattr(
+                self.coordinator, "model_status", MODEL_STATUS_PRICE_ONLY
+            ),
+        }
+
+
+class SolarForecastSensor(CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity):
+    """Expose optional Forecast.Solar energy context."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Solar forecast"
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_icon = "mdi:solar-power"
+
+    def __init__(
+        self, coordinator: EnergyPlannerCoordinator, entry: ConfigEntry
+    ) -> None:
+        """Initialize the solar forecast sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_solar_forecast"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=PLANNER_NAME,
+            manufacturer="Energy Planner",
+            model="Hourly price planner",
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        """Return forecast energy across the normalized response."""
+        forecast = self.coordinator.solar_forecast
+        return sum(point.energy_kwh for point in forecast.points) if forecast else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the normalized forecast intervals."""
+        forecast = self.coordinator.solar_forecast
+        return {
+            "available": forecast is not None,
+            "points": [
+                {
+                    "start_time": point.start_time.isoformat(),
+                    "end_time": point.end_time.isoformat(),
+                    "energy_kwh": point.energy_kwh,
+                }
+                for point in forecast.points
+            ]
+            if forecast
+            else [],
+            "model_status": getattr(
+                self.coordinator, "model_status", MODEL_STATUS_PRICE_ONLY
+            ),
         }

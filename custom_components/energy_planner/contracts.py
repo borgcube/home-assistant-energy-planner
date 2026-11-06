@@ -36,6 +36,9 @@ class CostModel(Protocol):
     def import_price(self, spot_price_per_kwh: float, at: datetime) -> float:
         """Return the variable all-in import price for one time slot."""
 
+    def export_price(self, spot_price_per_kwh: float, at: datetime) -> float:
+        """Return the value credited for one exported kWh."""
+
     def fixed_monthly_cost(self) -> float:
         """Return the separate recurring monthly electricity cost."""
 

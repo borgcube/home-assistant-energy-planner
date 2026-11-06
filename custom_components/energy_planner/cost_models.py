@@ -21,6 +21,7 @@ class FlatRateCostModel:
     variable_grid_cost: float
     monthly_fixed_cost: float
     key: str = "flat_rate"
+    export_compensation: float = 0.0
 
     def import_price(self, spot_price_per_kwh: float, at: datetime) -> float:
         """Return the variable all-in cost used for scheduling decisions."""
@@ -30,6 +31,11 @@ class FlatRateCostModel:
     def fixed_monthly_cost(self) -> float:
         """Return the monthly estimate without distorting hourly decisions."""
         return self.monthly_fixed_cost
+
+    def export_price(self, spot_price_per_kwh: float, at: datetime) -> float:
+        """Return the configured credit for one exported kWh."""
+        del at
+        return spot_price_per_kwh + self.export_compensation
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +107,9 @@ def build_cost_model(
             supplier_markup=float(settings.pop("supplier_markup", 0.0)),
             variable_grid_cost=float(settings.pop("variable_grid_cost", 0.0)),
             monthly_fixed_cost=float(settings.pop("monthly_fixed_cost", 0.0)),
+            export_compensation=float(
+                settings.pop("export_compensation", settings.pop("export_rate", 0.0))
+            ),
         )
     if tariff not in ("time_of_use", "tou"):
         raise ValueError(f"Unsupported tariff type: {tariff}")

@@ -10,50 +10,139 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_BATTERY_CAPACITY_ENTITY,
+    CONF_BATTERY_CHARGE_POWER_ENTITY,
+    CONF_BATTERY_DISCHARGE_POWER_ENTITY,
+    CONF_BATTERY_RESERVE_PERCENT,
+    CONF_BATTERY_SOC_ENTITY,
+    CONF_EXPORT_RATE,
     CONF_FIXED_MONTHLY_COST,
+    CONF_FORECAST_SOLAR_ENTRY,
     CONF_PRICE_ENTITY,
     CONF_SUPPLIER_MARKUP,
+    CONF_TARIFF_MODE,
+    CONF_TOU_OFFPEAK_GRID_COST,
+    CONF_TOU_PEAK_END_HOUR,
+    CONF_TOU_PEAK_GRID_COST,
+    CONF_TOU_PEAK_START_HOUR,
     CONF_VARIABLE_GRID_COST,
+    DEFAULT_BATTERY_RESERVE_PERCENT,
+    DEFAULT_EXPORT_RATE,
     DEFAULT_FIXED_MONTHLY_COST,
     DEFAULT_SUPPLIER_MARKUP,
+    DEFAULT_TARIFF_MODE,
+    DEFAULT_TOU_OFFPEAK_GRID_COST,
+    DEFAULT_TOU_PEAK_END_HOUR,
+    DEFAULT_TOU_PEAK_GRID_COST,
+    DEFAULT_TOU_PEAK_START_HOUR,
     DEFAULT_VARIABLE_GRID_COST,
     DOMAIN,
+    TARIFF_MODE_FLAT,
+    TARIFF_MODE_TIME_OF_USE,
 )
 
 
 def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     """Build the editable configuration schema."""
     defaults = defaults or {}
-    return vol.Schema(
-        {
-            vol.Required(
-                CONF_PRICE_ENTITY,
-                default=defaults.get(CONF_PRICE_ENTITY),
-            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-            vol.Required(
-                CONF_SUPPLIER_MARKUP,
-                default=defaults.get(CONF_SUPPLIER_MARKUP, DEFAULT_SUPPLIER_MARKUP),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=-1, max=5, step=0.001, mode="box")
+    schema: dict[Any, Any] = {
+        vol.Required(
+            CONF_PRICE_ENTITY,
+            default=defaults.get(CONF_PRICE_ENTITY),
+        ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+        vol.Required(
+            CONF_SUPPLIER_MARKUP,
+            default=defaults.get(CONF_SUPPLIER_MARKUP, DEFAULT_SUPPLIER_MARKUP),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=-1, max=5, step=0.001, mode="box")
+        ),
+        vol.Required(
+            CONF_VARIABLE_GRID_COST,
+            default=defaults.get(CONF_VARIABLE_GRID_COST, DEFAULT_VARIABLE_GRID_COST),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=-1, max=5, step=0.001, mode="box")
+        ),
+        vol.Required(
+            CONF_FIXED_MONTHLY_COST,
+            default=defaults.get(CONF_FIXED_MONTHLY_COST, DEFAULT_FIXED_MONTHLY_COST),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=-500, max=500, step=0.01, mode="box")
+        ),
+        vol.Required(
+            CONF_TARIFF_MODE,
+            default=defaults.get(CONF_TARIFF_MODE, DEFAULT_TARIFF_MODE),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[TARIFF_MODE_FLAT, TARIFF_MODE_TIME_OF_USE],
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
+        vol.Required(
+            CONF_TOU_PEAK_GRID_COST,
+            default=defaults.get(CONF_TOU_PEAK_GRID_COST, DEFAULT_TOU_PEAK_GRID_COST),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=-1, max=5, step=0.001, mode="box")
+        ),
+        vol.Required(
+            CONF_TOU_OFFPEAK_GRID_COST,
+            default=defaults.get(
+                CONF_TOU_OFFPEAK_GRID_COST, DEFAULT_TOU_OFFPEAK_GRID_COST
             ),
-            vol.Required(
-                CONF_VARIABLE_GRID_COST,
-                default=defaults.get(
-                    CONF_VARIABLE_GRID_COST, DEFAULT_VARIABLE_GRID_COST
-                ),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=-1, max=5, step=0.001, mode="box")
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=-1, max=5, step=0.001, mode="box")
+        ),
+        vol.Required(
+            CONF_TOU_PEAK_START_HOUR,
+            default=defaults.get(CONF_TOU_PEAK_START_HOUR, DEFAULT_TOU_PEAK_START_HOUR),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=0, max=23, step=1, mode="box")
+        ),
+        vol.Required(
+            CONF_TOU_PEAK_END_HOUR,
+            default=defaults.get(CONF_TOU_PEAK_END_HOUR, DEFAULT_TOU_PEAK_END_HOUR),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=0, max=23, step=1, mode="box")
+        ),
+        vol.Required(
+            CONF_EXPORT_RATE,
+            default=defaults.get(CONF_EXPORT_RATE, DEFAULT_EXPORT_RATE),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=-5, max=5, step=0.001, mode="box")
+        ),
+        vol.Required(
+            CONF_BATTERY_RESERVE_PERCENT,
+            default=defaults.get(
+                CONF_BATTERY_RESERVE_PERCENT, DEFAULT_BATTERY_RESERVE_PERCENT
             ),
-            vol.Required(
-                CONF_FIXED_MONTHLY_COST,
-                default=defaults.get(
-                    CONF_FIXED_MONTHLY_COST, DEFAULT_FIXED_MONTHLY_COST
-                ),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=-500, max=500, step=0.01, mode="box")
-            ),
-        }
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=0, max=100, step=1, mode="box")
+        ),
+    }
+
+    entity_selector = selector.EntitySelector(
+        selector.EntitySelectorConfig(domain="sensor")
     )
+    for key in (
+        CONF_BATTERY_SOC_ENTITY,
+        CONF_BATTERY_CAPACITY_ENTITY,
+        CONF_BATTERY_CHARGE_POWER_ENTITY,
+        CONF_BATTERY_DISCHARGE_POWER_ENTITY,
+    ):
+        value = defaults.get(key)
+        schema[vol.Optional(key, default=value) if value else vol.Optional(key)] = (
+            entity_selector
+        )
+
+    forecast_entry = defaults.get(CONF_FORECAST_SOLAR_ENTRY)
+    schema[
+        vol.Optional(
+            CONF_FORECAST_SOLAR_ENTRY,
+            default=forecast_entry,
+        )
+    ] = selector.ConfigEntrySelector(
+        selector.ConfigEntrySelectorConfig(integration="forecast_solar")
+    )
+    return vol.Schema(schema)
 
 
 class EnergyPlannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
