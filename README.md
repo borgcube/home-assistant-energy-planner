@@ -7,9 +7,9 @@ grid charging.
 ## Status
 
 Foundation implementation in progress. The current slice normalizes hourly
-price data, exposes an adjusted price timeline, and publishes a read-only
-cheapest upcoming one-hour recommendation. Battery optimisation, dashboard
-work, calendar planning, and appliance control follow in later slices.
+and higher-resolution price data, exposes an adjusted price timeline, and
+publishes read-only price and battery-charge recommendations. Dashboard work,
+calendar planning, and appliance control follow in later slices.
 
 The project is being structured as a clean, reusable package for eventual HACS
 and Home Assistant Marketplace submission. It intentionally contains no
@@ -63,3 +63,10 @@ power. Its
 response contains the least-cost contiguous window, estimated cost, and
 estimated saving versus running at the current price. It is explicitly
 `execution_mode: plan_only`; it does not call or schedule any device.
+
+The `energy_planner.plan_battery_charge` action accepts a charge duration,
+finish-by deadline, and expected charge power. Its response adds the target
+energy estimate and uses the same high-resolution price timeline. It is also
+explicitly `execution_mode: plan_only`: battery state, solar forecast, and
+battery control are not used until their adapters are configured in a later
+slice.

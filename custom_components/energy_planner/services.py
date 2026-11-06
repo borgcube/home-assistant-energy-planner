@@ -18,6 +18,7 @@ from .const import (
     MODEL_STATUS_UNAVAILABLE,
     SERVICE_APPLIANCE_ID,
     SERVICE_AVERAGE_POWER_KW,
+    SERVICE_CHARGE_POWER_KW,
     SERVICE_DEADLINE,
     SERVICE_DURATION_MINUTES,
     SERVICE_EARLIEST_START,
@@ -58,6 +59,22 @@ PLAN_APPLIANCE_SCHEMA = vol.Schema(
     }
 )
 
+PLAN_BATTERY_CHARGE_SCHEMA = vol.Schema(
+    {
+        vol.Required(SERVICE_DURATION_MINUTES): vol.All(
+            vol.Coerce(int),
+            vol.Range(min=15, max=24 * 60),
+            _quarter_hour_duration,
+        ),
+        vol.Required(SERVICE_DEADLINE): cv.datetime,
+        vol.Optional(SERVICE_EARLIEST_START): cv.datetime,
+        vol.Required(SERVICE_CHARGE_POWER_KW): vol.All(
+            vol.Coerce(float), vol.Range(min=0.001, max=100)
+        ),
+        vol.Optional(SERVICE_ENTRY_ID): cv.string,
+    }
+)
+
 
 def build_plan_response(
     timeline: PriceTimeline,
@@ -65,6 +82,8 @@ def build_plan_response(
     window: ScheduledWindow | None,
     *,
     source_entity: str,
+    plan_type: str | None = None,
+    target_energy_kwh: float | None = None,
 ) -> ServiceResponse:
     """Build a JSON-safe, plan-only response for a service caller."""
     response: dict[str, Any] = {
@@ -82,6 +101,10 @@ def build_plan_response(
         "source_format": timeline.source_format,
         "resolution_minutes": timeline.resolution_minutes,
     }
+    if plan_type is not None:
+        response["plan_type"] = plan_type
+    if target_energy_kwh is not None:
+        response["target_energy_kwh"] = target_energy_kwh
     if window is None:
         response["reason"] = "No contiguous price window meets the request"
         return response
@@ -135,7 +158,41 @@ def _select_coordinator(
 async def async_plan_appliance(
     hass: HomeAssistant, call: ServiceCall
 ) -> ServiceResponse:
-    """Return a cheapest plan without scheduling or controlling a device."""
+    """Return a cheapest appliance plan without controlling a device."""
+    return await _async_plan(
+        hass,
+        call,
+        appliance_id=call.data[SERVICE_APPLIANCE_ID],
+        average_power_kw=call.data[SERVICE_AVERAGE_POWER_KW],
+    )
+
+
+async def async_plan_battery_charge(
+    hass: HomeAssistant, call: ServiceCall
+) -> ServiceResponse:
+    """Return a price-only battery charge plan without controlling a battery."""
+    duration_hours = call.data[SERVICE_DURATION_MINUTES] / 60
+    charge_power_kw = call.data[SERVICE_CHARGE_POWER_KW]
+    return await _async_plan(
+        hass,
+        call,
+        appliance_id="battery_grid_charge",
+        average_power_kw=charge_power_kw,
+        plan_type="battery_charge",
+        target_energy_kwh=charge_power_kw * duration_hours,
+    )
+
+
+async def _async_plan(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    *,
+    appliance_id: str,
+    average_power_kw: float,
+    plan_type: str | None = None,
+    target_energy_kwh: float | None = None,
+) -> ServiceResponse:
+    """Build a plan response from the shared, read-only planning path."""
     coordinator, entry_id = _select_coordinator(
         hass, call.data.get(SERVICE_ENTRY_ID)
     )
@@ -149,10 +206,10 @@ async def async_plan_appliance(
         call.data.get(SERVICE_EARLIEST_START, now), now.tzinfo
     )
     request = AppliancePlanRequest(
-        appliance_id=call.data[SERVICE_APPLIANCE_ID],
+        appliance_id=appliance_id,
         duration=timedelta(minutes=call.data[SERVICE_DURATION_MINUTES]),
         deadline=deadline,
-        average_power_kw=call.data[SERVICE_AVERAGE_POWER_KW],
+        average_power_kw=average_power_kw,
         earliest_start=earliest_start,
     )
     window = find_lowest_cost_window(timeline, request)
@@ -163,5 +220,10 @@ async def async_plan_appliance(
         CONF_PRICE_ENTITY, entry.data[CONF_PRICE_ENTITY]
     )
     return build_plan_response(
-        timeline, request, window, source_entity=source_entity
+        timeline,
+        request,
+        window,
+        source_entity=source_entity,
+        plan_type=plan_type,
+        target_energy_kwh=target_energy_kwh,
     )
