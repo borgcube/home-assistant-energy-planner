@@ -16,7 +16,7 @@ The project is structured as a clean, reusable HACS package. It intentionally co
 household configuration, credentials, device identifiers, or provider account
 data.
 
-## Planned capabilities
+## Included capabilities
 
 - Hourly spot and configurable all-in import price timeline.
 - Fixed-cost monthly bill estimate.
