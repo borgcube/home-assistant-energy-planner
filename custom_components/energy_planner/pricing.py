@@ -35,6 +35,21 @@ class PriceTimeline:
     source_format: str
 
     @property
+    def resolution_minutes(self) -> int | float | None:
+        """Return the smallest normalized slot width in minutes."""
+        if not self.points:
+            return None
+        durations = [
+            (point.end_time - point.start_time).total_seconds() / 60
+            for point in self.points
+            if point.end_time > point.start_time
+        ]
+        if not durations:
+            return None
+        resolution = min(durations)
+        return int(resolution) if resolution.is_integer() else resolution
+
+    @property
     def current(self) -> PricePoint | None:
         """Return the point containing the current local time when present."""
         now = datetime.now().astimezone()

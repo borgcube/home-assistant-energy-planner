@@ -104,6 +104,7 @@ class AdjustedPriceTimelineSensor(
             ATTR_MODEL_STATUS: MODEL_STATUS_PRICE_ONLY,
             ATTR_SOURCE_ENTITY: source_entity,
             "source_format": self.coordinator.data.source_format,
+            "resolution_minutes": self.coordinator.data.resolution_minutes,
         }
 
 
@@ -168,6 +169,11 @@ class CheapestPriceWindowSensor(
                     if self.coordinator.data
                     else None
                 ),
+                "resolution_minutes": (
+                    self.coordinator.data.resolution_minutes
+                    if self.coordinator.data
+                    else None
+                ),
                 "reason": "No complete future price window is available",
             }
 
@@ -188,6 +194,7 @@ class CheapestPriceWindowSensor(
             "model_status": MODEL_STATUS_PRICE_ONLY,
             "source_entity": source_entity,
             "source_format": self.coordinator.data.source_format,
+            "resolution_minutes": self.coordinator.data.resolution_minutes,
             "last_updated": datetime.now().astimezone().isoformat(),
         }
 

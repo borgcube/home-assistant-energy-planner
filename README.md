@@ -44,6 +44,8 @@ The resulting **Adjusted electricity price** sensor exposes an hourly `data`
 attribute. Every entry includes `start_time`, `end_time`, `spot_price_per_kwh`,
 and adjusted `price_per_kwh` values. Home Assistant generates the exact entity
 ID from the device and area name, so use the entity picker when referencing it.
+The sensor also reports `resolution_minutes`, which reflects the source
+cadence, including 15-minute ENTSO-E data.
 
 The **Fixed monthly electricity cost** sensor exposes the configured recurring
 charge in EUR. This value stays separate from hourly scheduling prices and is

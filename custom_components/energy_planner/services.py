@@ -80,6 +80,7 @@ def build_plan_response(
         SERVICE_DEADLINE: request.deadline.isoformat(),
         "source_entity": source_entity,
         "source_format": timeline.source_format,
+        "resolution_minutes": timeline.resolution_minutes,
     }
     if window is None:
         response["reason"] = "No contiguous price window meets the request"

@@ -69,6 +69,7 @@ def test_plan_service_schema_and_response_are_read_only() -> None:
     assert response["start_time"] == "2026-11-06T01:00:00+01:00"
     assert response["end_time"] == "2026-11-06T02:30:00+01:00"
     assert response["estimated_cost"] == pytest.approx(0.20)
+    assert response["resolution_minutes"] == 60
 
 
 def test_plan_service_reports_unavailable_without_a_valid_window() -> None:

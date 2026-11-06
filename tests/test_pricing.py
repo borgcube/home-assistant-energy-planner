@@ -84,6 +84,27 @@ def test_normalizes_live_entso_dynamic_prices_shape() -> None:
     )
 
 
+def test_preserves_fifteen_minute_entso_resolution() -> None:
+    """Higher-resolution ENTSO points remain distinct normalized slots."""
+    timeline = EntsoDynamicPricesAdapter().normalize(
+        {
+            "prices_today": [
+                {"time": "2026-11-06 00:00:00+01:00", "price": 0.20},
+                {"time": "2026-11-06 00:15:00+01:00", "price": 0.18},
+                {"time": "2026-11-06 00:30:00+01:00", "price": 0.16},
+            ]
+        }
+    )
+
+    assert timeline.resolution_minutes == 15
+    assert timeline.points[0].end_time == datetime.fromisoformat(
+        "2026-11-06T00:15:00+01:00"
+    )
+    assert timeline.points[1].end_time == datetime.fromisoformat(
+        "2026-11-06T00:30:00+01:00"
+    )
+
+
 def test_rejects_hourly_data_without_a_timezone() -> None:
     """Naive timestamps must not silently shift hourly schedules."""
     with pytest.raises(ValueError, match="timezone"):
