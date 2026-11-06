@@ -6,11 +6,13 @@ grid charging.
 
 ## Status
 
-Foundation implementation in progress. The current slice normalizes hourly
-and higher-resolution price data, exposes an adjusted price timeline, and
-publishes read-only price and battery-charge recommendations. The latest
-recommendation is also visible in Home Assistant's native Calendar view.
-Dashboard work and appliance control follow in later slices.
+The current release normalizes hourly and higher-resolution price data, exposes
+an adjusted price timeline, and publishes read-only appliance and battery-charge
+recommendations. The latest recommendation is also visible in Home Assistant's
+native Calendar view. A dependency-free, read-only native Lovelace card is
+included under `www/energy-planner-card.js`; storage-backed history and profile
+data are internal foundations, while notifications and device control are not
+implemented.
 
 The project is being structured as a clean, reusable package for eventual HACS
 and Home Assistant Marketplace submission. It intentionally contains no
@@ -23,14 +25,18 @@ data.
 - Fixed-cost monthly bill estimate.
 - Enphase battery and Forecast.Solar-aware recommendations, with safe
   price-only fallback.
-- Calendar-style appliance plans with deadlines, cost, and estimated savings.
+- Persistent plan history and state recovery across Home Assistant restarts.
+- Appliance profiles with runtime, deadline, power-monitoring, load-group, and
+  execution settings.
+- Notifications at a recommended start time.
 - Automatic operation only for explicitly opted-in devices with a verified
   programme-start or delayed-start capability.
 
 See [the design specification](docs/superpowers/specs/2026-11-06-energy-planner-design.md)
 for the agreed scope and safeguards.
-The [adapter architecture](docs/architecture.md) describes how providers,
-cost models, batteries, and solar forecasts remain replaceable.
+The [adapter architecture](docs/architecture.md) describes the implemented
+provider and cost-model boundaries, as well as the planned battery, solar,
+profile, history, notification, and execution boundaries.
 
 ## Current installation (development)
 
@@ -72,12 +78,28 @@ explicitly `execution_mode: plan_only`: battery state, solar forecast, and
 battery control are not used until their adapters are configured in a later
 slice.
 
+The included **Energy Planner** dashboard card presents the adjusted or spot
+price timeline, fixed monthly estimate, model status, latest plan, and a
+plan-only appliance form. It is read-only with respect to devices: submitting
+the form calls the existing plan service and never starts an appliance.
+
 The **Last plan** sensor mirrors the latest appliance or battery plan response
 in the normal Home Assistant entity UI. Its state is the plan status and its
 attributes include the proposed window, cost, saving, source resolution, and
-model status. It is in-memory for now and remains plan-only.
+model status. It is in-memory for now, so the latest plan is lost when Home
+Assistant restarts; no history API is exposed yet.
 
 The **Plan schedule** calendar exposes that same latest recommendation as a
 calendar event with its proposed window, cost, saving, and price-source details.
-Both entities are in-memory for now and remain plan-only; they do not start or
-control devices.
+These native entities provide the dashboard-facing data contract. The card
+shows up to 48 timeline points and remains useful when only price data is
+available.
+
+All current planning remains `execution_mode: plan_only`: the services return a
+recommendation and do not call, schedule, or turn on a device. Future profiles,
+notifications, persistence, and automatic execution must be added behind
+explicit contracts. Automatic execution is only acceptable for an individually
+enabled profile with a verified native programme-start or delayed-start action;
+a generic switch, power monitoring, stale or missing prices, an expired
+deadline, a disabled plan, or an already-running device must never authorize
+an automatic start.

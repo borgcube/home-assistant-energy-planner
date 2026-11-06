@@ -1,8 +1,15 @@
 [project]
 name = "home-assistant-energy-planner"
-version = "0.1.0"
+version = "0.2.0"
 description = "Price normalization and planning foundation for Home Assistant Energy Planner"
 requires-python = ">=3.13"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
