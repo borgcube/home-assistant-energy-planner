@@ -1,0 +1,25 @@
+# Python and Home Assistant development
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Node and frontend tooling
+node_modules/
+dist/
+coverage/
+
+# Home Assistant local state and secrets
+.storage/
+*.db
+*.db-shm
+*.db-wal
+secrets.yaml
+.env
+
+# Editor and operating-system files
+.DS_Store
+.vscode/
+.idea/
