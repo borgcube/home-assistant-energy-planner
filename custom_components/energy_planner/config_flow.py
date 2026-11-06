@@ -34,7 +34,7 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_SUPPLIER_MARKUP,
                 default=defaults.get(CONF_SUPPLIER_MARKUP, DEFAULT_SUPPLIER_MARKUP),
             ): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=-1, max=5, step=0.0001, mode="box")
+                selector.NumberSelectorConfig(min=-1, max=5, step=0.001, mode="box")
             ),
             vol.Required(
                 CONF_VARIABLE_GRID_COST,
@@ -42,7 +42,7 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     CONF_VARIABLE_GRID_COST, DEFAULT_VARIABLE_GRID_COST
                 ),
             ): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=-1, max=5, step=0.0001, mode="box")
+                selector.NumberSelectorConfig(min=-1, max=5, step=0.001, mode="box")
             ),
             vol.Required(
                 CONF_FIXED_MONTHLY_COST,
