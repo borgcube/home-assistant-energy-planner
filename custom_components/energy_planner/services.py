@@ -219,7 +219,7 @@ async def _async_plan(
     source_entity = entry.options.get(
         CONF_PRICE_ENTITY, entry.data[CONF_PRICE_ENTITY]
     )
-    return build_plan_response(
+    response = build_plan_response(
         timeline,
         request,
         window,
@@ -227,3 +227,5 @@ async def _async_plan(
         plan_type=plan_type,
         target_energy_kwh=target_energy_kwh,
     )
+    coordinator.set_last_plan(response)
+    return response

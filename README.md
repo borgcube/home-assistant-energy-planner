@@ -70,3 +70,8 @@ energy estimate and uses the same high-resolution price timeline. It is also
 explicitly `execution_mode: plan_only`: battery state, solar forecast, and
 battery control are not used until their adapters are configured in a later
 slice.
+
+The **Last plan** sensor mirrors the latest appliance or battery plan response
+in the normal Home Assistant entity UI. Its state is the plan status and its
+attributes include the proposed window, cost, saving, source resolution, and
+model status. It is in-memory for now and remains plan-only.

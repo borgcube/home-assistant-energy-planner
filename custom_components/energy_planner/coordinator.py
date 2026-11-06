@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -38,6 +39,12 @@ class EnergyPlannerCoordinator(DataUpdateCoordinator[PriceTimeline]):
             config_entry=entry,
         )
         self.config_entry = entry
+        self.last_plan: dict[str, Any] | None = None
+
+    def set_last_plan(self, response: dict[str, Any]) -> None:
+        """Publish the latest plan response to native Home Assistant entities."""
+        self.last_plan = dict(response)
+        self.async_update_listeners()
 
     async def _async_update_data(self) -> PriceTimeline:
         """Return a normalized adjusted price timeline from the source sensor."""

@@ -47,6 +47,7 @@ async def async_setup_entry(
             AdjustedPriceTimelineSensor(entry.runtime_data, entry),
             CheapestPriceWindowSensor(entry.runtime_data, entry),
             FixedMonthlyCostSensor(entry.runtime_data, entry),
+            LastPlanSensor(entry.runtime_data, entry),
         ]
     )
 
@@ -245,4 +246,48 @@ class FixedMonthlyCostSensor(
             "model_status": MODEL_STATUS_PRICE_ONLY,
             "source_entity": source_entity,
             "last_updated": datetime.now().astimezone().isoformat(),
+        }
+
+
+class LastPlanSensor(CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity):
+    """Expose the latest appliance or battery plan in the native UI."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Last plan"
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(
+        self, coordinator: EnergyPlannerCoordinator, entry: ConfigEntry
+    ) -> None:
+        """Initialize the latest-plan sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_last_plan"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=PLANNER_NAME,
+            manufacturer="Energy Planner",
+            model="Hourly price planner",
+        )
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the latest plan status, or unknown before the first plan."""
+        return (
+            self.coordinator.last_plan.get("status")
+            if self.coordinator.last_plan
+            else None
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the complete latest plan response for cards and automations."""
+        if self.coordinator.last_plan is None:
+            return {
+                "model_status": MODEL_STATUS_UNAVAILABLE,
+                "execution_mode": "plan_only",
+                "reason": "No plan has been requested yet",
+            }
+        return {
+            **self.coordinator.last_plan,
+            "last_plan_updated": datetime.now().astimezone().isoformat(),
         }
