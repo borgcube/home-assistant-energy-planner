@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 
+from homeassistant.config import ConfigType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import Event, HomeAssistant, SupportsResponse, callback
@@ -17,8 +18,9 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 type EnergyPlannerConfigEntry = ConfigEntry[EnergyPlannerCoordinator]
 
 
-async def async_setup(hass: HomeAssistant) -> bool:
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register Energy Planner's read-only planning service."""
+    del config
     hass.services.async_register(
         DOMAIN,
         SERVICE_PLAN_APPLIANCE,
