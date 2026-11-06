@@ -40,12 +40,13 @@ cost models, batteries, and solar forecasts remain replaceable.
 4. Select the hourly price sensor and enter only the variable per-kWh costs.
    Fixed monthly costs are kept separate for the bill estimate.
 
-The resulting `sensor.energy_planner_adjusted_electricity_price` exposes an
-hourly `data` attribute. Every entry includes `start_time`, `end_time`,
-`spot_price_per_kwh`, and adjusted `price_per_kwh` values.
+The resulting **Adjusted electricity price** sensor exposes an hourly `data`
+attribute. Every entry includes `start_time`, `end_time`, `spot_price_per_kwh`,
+and adjusted `price_per_kwh` values. Home Assistant generates the exact entity
+ID from the device and area name, so use the entity picker when referencing it.
 
-The integration also creates `sensor.energy_planner_cheapest_1_hour_price_window`.
-Its timestamp is the start of the cheapest complete one-hour window in the
-next 24 hours; attributes include the end time, average price, source, and
+The integration also creates a **Cheapest 1-hour price window** timestamp
+sensor. Its timestamp is the start of the cheapest complete one-hour window in
+the next 24 hours; attributes include the end time, average price, source, and
 `model_status: price_only`. It is a recommendation only and does not control
 any device.
