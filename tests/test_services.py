@@ -10,7 +10,11 @@ from energy_planner.pricing import PricePoint, PriceTimeline
 def test_plan_service_schema_and_response_are_read_only() -> None:
     """The service accepts hourly inputs and returns a plan-only response."""
     pytest.importorskip("homeassistant")
-    from energy_planner.services import PLAN_APPLIANCE_SCHEMA, build_plan_response
+    from energy_planner.services import (
+        PLAN_APPLIANCE_SCHEMA,
+        _ensure_timezone,
+        build_plan_response,
+    )
 
     request_data = PLAN_APPLIANCE_SCHEMA(
         {
@@ -20,6 +24,10 @@ def test_plan_service_schema_and_response_are_read_only() -> None:
             "average_power_kw": "1.0",
         }
     )
+    local_timezone = datetime.now().astimezone().tzinfo
+    assert _ensure_timezone(
+        datetime(2026, 11, 6, 4), local_timezone
+    ).tzinfo == local_timezone
     timeline = PriceTimeline(
         points=(
             PricePoint(

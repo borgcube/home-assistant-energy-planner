@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from typing import Any
 
 import voluptuous as vol
@@ -32,6 +32,11 @@ def _whole_hour_duration(value: int) -> int:
     if value % 60:
         raise vol.Invalid("duration_minutes must be a whole number of hours")
     return value
+
+
+def _ensure_timezone(value: datetime, local_timezone: tzinfo) -> datetime:
+    """Interpret Home Assistant's naive picker values in local time."""
+    return value if value.tzinfo is not None else value.replace(tzinfo=local_timezone)
 
 
 PLAN_APPLIANCE_SCHEMA = vol.Schema(
@@ -138,11 +143,14 @@ async def async_plan_appliance(
         raise HomeAssistantError("Energy Planner has no current price timeline")
 
     now = datetime.now().astimezone()
-    earliest_start = call.data.get(SERVICE_EARLIEST_START, now)
+    deadline = _ensure_timezone(call.data[SERVICE_DEADLINE], now.tzinfo)
+    earliest_start = _ensure_timezone(
+        call.data.get(SERVICE_EARLIEST_START, now), now.tzinfo
+    )
     request = AppliancePlanRequest(
         appliance_id=call.data[SERVICE_APPLIANCE_ID],
         duration=timedelta(minutes=call.data[SERVICE_DURATION_MINUTES]),
-        deadline=call.data[SERVICE_DEADLINE],
+        deadline=deadline,
         average_power_kw=call.data[SERVICE_AVERAGE_POWER_KW],
         earliest_start=earliest_start,
     )
