@@ -8,8 +8,9 @@ grid charging.
 
 Foundation implementation in progress. The current slice normalizes hourly
 and higher-resolution price data, exposes an adjusted price timeline, and
-publishes read-only price and battery-charge recommendations. Dashboard work,
-calendar planning, and appliance control follow in later slices.
+publishes read-only price and battery-charge recommendations. The latest
+recommendation is also visible in Home Assistant's native Calendar view.
+Dashboard work and appliance control follow in later slices.
 
 The project is being structured as a clean, reusable package for eventual HACS
 and Home Assistant Marketplace submission. It intentionally contains no
@@ -75,3 +76,8 @@ The **Last plan** sensor mirrors the latest appliance or battery plan response
 in the normal Home Assistant entity UI. Its state is the plan status and its
 attributes include the proposed window, cost, saving, source resolution, and
 model status. It is in-memory for now and remains plan-only.
+
+The **Plan schedule** calendar exposes that same latest recommendation as a
+calendar event with its proposed window, cost, saving, and price-source details.
+Both entities are in-memory for now and remain plan-only; they do not start or
+control devices.

@@ -26,7 +26,7 @@ from .services import (
     async_plan_battery_charge,
 )
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.CALENDAR]
 type EnergyPlannerConfigEntry = ConfigEntry[EnergyPlannerCoordinator]
 _LOGGER = logging.getLogger(__name__)
 
