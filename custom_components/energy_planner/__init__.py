@@ -6,7 +6,6 @@ import logging
 from functools import partial
 from pathlib import Path
 
-from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config import ConfigType
 from homeassistant.config_entries import ConfigEntry
@@ -49,8 +48,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register Energy Planner services and its Lovelace card resource."""
+    """Register Energy Planner services and the legacy card path."""
     del config
+    # The card is now distributed as a separate Marketplace Dashboard package.
+    # Keep this static path for users who explicitly configured the legacy
+    # resource, but do not add it to every dashboard automatically. That lets
+    # the standalone card update without an integration restart and avoids two
+    # versions of the custom element competing in the frontend.
     card_path = Path(__file__).parent / "www" / "energy-planner-card.js"
     if not card_path.is_file():
         card_path = Path(__file__).parents[2] / "www" / "energy-planner-card.js"
@@ -58,12 +62,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         await hass.http.async_register_static_paths(
             [StaticPathConfig("/energy_planner/energy-planner-card.js", str(card_path))]
         )
-        try:
-            frontend.add_extra_js_url(hass, "/energy_planner/energy-planner-card.js")
-        except KeyError:
-            _LOGGER.debug(
-                "Home Assistant frontend is not ready for the Energy Planner card"
-            )
     hass.services.async_register(
         DOMAIN,
         SERVICE_PLAN_APPLIANCE,

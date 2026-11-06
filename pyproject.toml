@@ -1,6 +1,6 @@
 [project]
 name = "home-assistant-energy-planner"
-version = "0.2.0"
+version = "0.3.0"
 description = "Price normalization and planning foundation for Home Assistant Energy Planner"
 requires-python = ">=3.13"
 

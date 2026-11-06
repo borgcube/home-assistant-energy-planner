@@ -86,10 +86,11 @@ deadline passes, or the device is already running.
 
 ### 4. Dashboard card
 
-The custom Home Overview card presents a 24–48 hour calendar-style timeline:
+The custom Home Overview card presents a compact 24–48 hour price chart:
 
-- hourly all-in prices, colour-coded by relative cost;
-- spot and all-in values together;
+- all-in prices plotted over time, with a current-slot marker;
+- an optional spot-price comparison line;
+- exact values available on hover and through accessible timeline details;
 - current fixed-cost monthly estimate;
 - battery and solar context, when present;
 - recommendations and their reasons; and
@@ -97,6 +98,11 @@ The custom Home Overview card presents a 24–48 hour calendar-style timeline:
 
 The card shows the model status and refresh time. When inputs are incomplete,
 it remains useful by showing the price timeline and price-only guidance.
+The card is distributed independently as the
+`lovelace-energy-planner-card` Marketplace Dashboard package so frontend
+updates do not require a backend integration restart. The integration keeps a
+legacy static resource path for explicitly configured dashboards during
+migration, but does not auto-register that legacy resource for new dashboards.
 
 ## Configuration
 
@@ -167,3 +173,5 @@ grid-price curve alone and labels the result as price-only.
 4. Add Forecast.Solar and Enphase-aware optimisation.
 5. Add appliance calendar planning and notifications.
 6. Add automatic operation for individually verified appliance profiles.
+7. Split the Lovelace card into its independently updatable Marketplace
+   Dashboard package and document the migration from the legacy auto-resource.

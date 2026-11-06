@@ -79,3 +79,36 @@ def test_entry_setup_forwards_entities_when_price_source_is_unavailable(
     assert result is True
     assert restored is True
     assert forwarded == [(entry, integration.PLATFORMS)]
+
+
+def test_global_setup_keeps_legacy_path_without_auto_registering_card(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The standalone Marketplace card must not be shadowed by the legacy URL."""
+    integration = _integration_module()
+    from homeassistant.components import frontend
+
+    registered_paths: list[object] = []
+    registered_services: list[tuple[object, ...]] = []
+
+    class FakeHTTP:
+        async def async_register_static_paths(self, paths) -> None:
+            registered_paths.extend(paths)
+
+    class FakeServices:
+        def async_register(self, *args, **kwargs) -> None:
+            registered_services.append((*args, kwargs))
+
+    hass = SimpleNamespace(http=FakeHTTP(), services=FakeServices())
+    monkeypatch.setattr(
+        frontend,
+        "add_extra_js_url",
+        lambda *args, **kwargs: pytest.fail(
+            "the legacy card must not be auto-registered"
+        ),
+    )
+
+    assert asyncio.run(integration.async_setup(hass, {})) is True
+    assert len(registered_paths) == 1
+    assert registered_paths[0].url_path == "/energy_planner/energy-planner-card.js"
+    assert len(registered_services) == 5

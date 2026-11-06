@@ -35,13 +35,28 @@
     .summary, .plan { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
     .metric { padding: 10px; border-radius: 8px; background: var(--secondary-background-color); }
     .metric strong { display: block; font-size: 1.1rem; margin-top: 3px; }
-    .timeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
-      gap: 5px; align-items: end; min-height: 120px; }
-    .slot { min-width: 0; }
-    .bar { min-height: 8px; border-radius: 4px 4px 0 0; background: var(--accent-color); }
-    .slot.current .bar { outline: 2px solid var(--primary-color); outline-offset: 1px; }
-    .slot time, .slot .price { display: block; font-size: .75rem; overflow: hidden;
-      text-overflow: ellipsis; white-space: nowrap; }
+    .timeline { margin-top: 4px; }
+    .price-chart { display: block; width: 100%; height: auto; min-height: 170px; overflow: visible; }
+    .chart-grid { stroke: var(--divider-color); stroke-width: 1; stroke-dasharray: 2 4; }
+    .chart-axis { fill: var(--secondary-text-color); font-size: 11px; }
+    .chart-area { fill: var(--accent-color); opacity: .14; }
+    .chart-line { fill: none; stroke: var(--accent-color); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .chart-spot-line { fill: none; stroke: var(--secondary-text-color); stroke-width: 1.7; stroke-dasharray: 5 4; stroke-linecap: round; stroke-linejoin: round; }
+    .chart-current { stroke: var(--primary-color); stroke-width: 1.5; stroke-dasharray: 4 3; }
+    .chart-dot { fill: var(--accent-color); stroke: var(--card-background-color); stroke-width: 1; opacity: .9; }
+    .chart-current-dot { fill: var(--primary-color); stroke: var(--card-background-color); stroke-width: 2; }
+    .chart-legend { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 2px 0 4px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 5px; font-size: .78rem; color: var(--secondary-text-color); }
+    .legend-key { width: 18px; height: 3px; border-radius: 2px; background: var(--accent-color); }
+    .legend-key.spot { height: 0; border-top: 2px dashed var(--secondary-text-color); background: transparent; }
+    .chart-note { margin-top: 2px; }
+    details { margin-top: 18px; }
+    details > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      cursor: pointer; font-size: 1rem; font-weight: 500; }
+    details > summary::marker { color: var(--secondary-text-color); }
+    details[open] > summary { margin-bottom: 8px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     form { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); }
     label { display: grid; gap: 4px; font-size: .8rem; }
     input { box-sizing: border-box; width: 100%; padding: 8px; color: inherit;
@@ -94,6 +109,30 @@
     return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString([], {
       month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
     });
+  }
+
+  function formatModelStatus(value) {
+    return {
+      complete: "Complete",
+      battery_aware: "Battery aware",
+      price_only: "Price only",
+      unavailable: "Unavailable",
+    }[value] || String(value || "Unavailable").replace(/_/g, " ");
+  }
+
+  function formatChartTime(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+
+  function svgElement(tag, attributes) {
+    const element = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.entries(attributes || {}).forEach(([key, value]) => {
+      element.setAttribute(key, String(value));
+    });
+    return element;
   }
 
   function localDateTime(date) {
@@ -155,7 +194,7 @@
       const card = make("ha-card");
       const wrap = make("div", undefined, "wrap");
       const heading = make("h2", this._config.title);
-      heading.append(make("span", `  ${modelStatus}`, "status"));
+      heading.append(make("span", `  ${formatModelStatus(modelStatus)}`, "status"));
       wrap.append(heading);
       wrap.append(make("p", points.length ? `Source: ${priceAttrs.source_entity || this._config.price_sensor}` : "No price timeline is available yet.", "muted"));
 
@@ -172,8 +211,11 @@
 
       wrap.append(make("h3", "Latest plan"));
       wrap.append(this._planContext(lastAttrs, historyAttrs));
-      wrap.append(make("h3", "Plan an appliance"));
-      wrap.append(this._planForm());
+      const planner = document.createElement("details");
+      const plannerSummary = document.createElement("summary");
+      plannerSummary.append(make("span", "Plan an appliance"), make("span", "Plan only", "status"));
+      planner.append(plannerSummary, this._planForm());
+      wrap.append(planner);
       card.append(wrap);
       this._root.append(card);
     }
@@ -186,24 +228,114 @@
 
     _timeline(points, key) {
       if (!points.length) return make("p", "Waiting for price data…", "message muted");
-      const values = points.map((point) => number(point[key])).filter((value) => value !== null);
-      const min = Math.min(...values);
-      const max = Math.max(...values);
       const timeline = make("div", undefined, "timeline");
-      points.slice(0, 48).forEach((point) => {
-        const value = number(point[key]);
-        if (value === null) return;
-        const slot = make("div", undefined, "slot");
+      const mainSeries = points.slice(0, 192).map((point) => ({
+        point,
+        value: number(point[key]),
+        spot: number(point.spot_price_per_kwh),
+      })).filter((item) => item.value !== null);
+      if (!mainSeries.length) return make("p", "Waiting for price data…", "message muted");
+
+      const showSpot = this._config.show_spot && key !== "spot_price_per_kwh"
+        && mainSeries.some((item) => item.spot !== null);
+      const plottedValues = mainSeries.flatMap((item) => (
+        showSpot && item.spot !== null ? [item.value, item.spot] : [item.value]
+      ));
+      const min = Math.min(...plottedValues);
+      const max = Math.max(...plottedValues);
+      const width = 720;
+      const height = 210;
+      const left = 50;
+      const right = 12;
+      const top = 14;
+      const bottom = 34;
+      const plotWidth = width - left - right;
+      const plotHeight = height - top - bottom;
+      const x = (index) => left + (index / Math.max(1, mainSeries.length - 1)) * plotWidth;
+      const y = (value) => top + ((max - value) / (max - min || 1)) * plotHeight;
+      const mainPath = mainSeries.map((item, index) => `${index ? "L" : "M"}${x(index)} ${y(item.value)}`).join(" ");
+      const areaPath = `${mainPath} L${x(mainSeries.length - 1)} ${top + plotHeight} L${x(0)} ${top + plotHeight} Z`;
+      const svg = svgElement("svg", {
+        class: "price-chart",
+        viewBox: `0 0 ${width} ${height}`,
+        role: "img",
+        "aria-label": `Price chart with ${mainSeries.length} points from ${formatPrice(min, this._config.currency)} to ${formatPrice(max, this._config.currency)}`,
+      });
+      const title = svgElement("title");
+      title.textContent = "Electricity price timeline";
+      svg.append(title);
+
+      for (let tick = 0; tick <= 3; tick += 1) {
+        const value = max - ((max - min) * tick / 3);
+        const yPosition = top + (plotHeight * tick / 3);
+        svg.append(
+          svgElement("line", { class: "chart-grid", x1: left, x2: width - right, y1: yPosition, y2: yPosition }),
+          svgElement("text", { class: "chart-axis", x: left - 8, y: yPosition + 4, "text-anchor": "end" }),
+        );
+        svg.lastChild.textContent = value.toFixed(3);
+      }
+
+      const tickIndexes = [...new Set([0, Math.floor((mainSeries.length - 1) / 3), Math.floor((mainSeries.length - 1) * 2 / 3), mainSeries.length - 1])];
+      tickIndexes.forEach((index) => {
+        const label = svgElement("text", { class: "chart-axis", x: x(index), y: height - 10, "text-anchor": "middle" });
+        label.textContent = formatChartTime(mainSeries[index].point.start_time);
+        svg.append(label);
+      });
+
+      svg.append(svgElement("path", { class: "chart-area", d: areaPath }));
+      if (showSpot) {
+        const spotSeries = mainSeries
+          .map((item, index) => ({ ...item, index }))
+          .filter((item) => item.spot !== null);
+        const spotPath = spotSeries
+          .map((item, index) => `${index ? "L" : "M"}${x(item.index)} ${y(item.spot)}`).join(" ");
+        svg.append(svgElement("path", { class: "chart-spot-line", d: spotPath }));
+      }
+      svg.append(svgElement("path", { class: "chart-line", d: mainPath }));
+      mainSeries.forEach((item, index) => {
+        const dot = svgElement("circle", { class: "chart-dot", cx: x(index), cy: y(item.value), r: 2.5 });
+        const spotText = showSpot && item.spot !== null ? `; spot ${formatPrice(item.spot, this._config.currency)}` : "";
+        const pointTitle = svgElement("title");
+        pointTitle.textContent = `${formatTime(item.point.start_time)}: ${formatPrice(item.value, this._config.currency)}${spotText}`;
+        dot.append(pointTitle);
+        svg.append(dot);
+      });
+
+      const now = new Date();
+      const currentIndex = mainSeries.findIndex(({ point }) => {
         const start = new Date(point.start_time);
         const end = new Date(point.end_time);
-        if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && start <= new Date() && new Date() < end) slot.classList.add("current");
-        const bar = make("div", undefined, "bar");
-        bar.style.height = `${Math.max(8, ((value - min) / (max - min || 1)) * 72 + 8)}px`;
-        bar.title = `${formatPrice(value, this._config.currency)}${this._config.show_spot && point.spot_price_per_kwh != null ? `; spot ${formatPrice(point.spot_price_per_kwh, this._config.currency)}` : ""}`;
-        slot.append(bar, make("span", formatTime(point.start_time), "time"), make("span", formatPrice(value, this._config.currency), "price"));
-        timeline.append(slot);
+        return !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && start <= now && now < end;
       });
+      if (currentIndex >= 0) {
+        svg.append(
+          svgElement("line", { class: "chart-current", x1: x(currentIndex), x2: x(currentIndex), y1: top, y2: top + plotHeight }),
+          svgElement("circle", { class: "chart-current-dot", cx: x(currentIndex), cy: y(mainSeries[currentIndex].value), r: 4 }),
+        );
+        const currentLabel = svgElement("text", { class: "chart-axis", x: x(currentIndex), y: top - 2, "text-anchor": "middle" });
+        currentLabel.textContent = "Now";
+        svg.append(currentLabel);
+      }
+
+      const accessiblePoints = make("ul", undefined, "sr-only");
+      accessiblePoints.setAttribute("aria-label", "Price timeline details");
+      mainSeries.forEach((item) => {
+        const spotText = showSpot && item.spot !== null ? `, spot ${formatPrice(item.spot, this._config.currency)}` : "";
+        accessiblePoints.append(make("li", `${formatTime(item.point.start_time)}: ${formatPrice(item.value, this._config.currency)}${spotText}`));
+      });
+      timeline.append(svg);
+
+      const legend = make("div", undefined, "chart-legend");
+      legend.append(this._legendItem(this._config.price_mode === "spot" ? "Spot" : "All-in", "all-in"));
+      if (showSpot) legend.append(this._legendItem("Spot", "spot"));
+      timeline.append(legend, make("p", "Hover a point for its exact price; the current slot is marked Now.", "muted chart-note"), accessiblePoints);
       return timeline;
+    }
+
+    _legendItem(label, kind) {
+      const item = make("span", undefined, "legend-item");
+      item.append(make("span", undefined, `legend-key ${kind}`), make("span", label));
+      return item;
     }
 
     _planContext(lastAttrs, historyAttrs) {

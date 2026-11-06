@@ -9,8 +9,9 @@ grid charging.
 The current release normalizes hourly and higher-resolution price data, exposes
 an adjusted price timeline, and publishes appliance and battery-charge
 recommendations. The latest recommendation is also visible in Home Assistant's
-native Calendar view. A dependency-free native Lovelace card is registered
-automatically and remains plan-only for ordinary requests.
+native Calendar view. The dependency-free Lovelace card is distributed as a
+separate Marketplace Dashboard package and remains plan-only for ordinary
+requests.
 
 The project is structured as a clean, reusable HACS package. It intentionally contains no
 household configuration, credentials, device identifiers, or provider account
@@ -44,6 +45,12 @@ boundaries.
 4. Select the hourly price sensor, tariff settings, fixed monthly cost, and
    optional battery/Forecast.Solar sources. Fixed monthly costs stay separate
    from hourly scheduling prices.
+5. Install [Energy Planner Card](https://github.com/borgcube/lovelace-energy-planner-card)
+   from the Marketplace Dashboard section, then reload your browser.
+
+Updating the backend integration may require a Home Assistant restart. Updating
+the standalone dashboard card only requires a browser reload, so chart and
+presentation changes can be delivered independently.
 
 The resulting **Adjusted electricity price** sensor exposes an hourly `data`
 attribute. Every entry includes `start_time`, `end_time`, `spot_price_per_kwh`,
@@ -77,10 +84,11 @@ entities and a Forecast.Solar entry are configured, the response also includes
 battery headroom and forecast context. Missing optional sources retain a safe
 `price_only` fallback.
 
-The included **Energy Planner** dashboard card presents the adjusted or spot
-price timeline, fixed monthly estimate, model status, latest plan, and a
-plan-only appliance form. It is read-only with respect to devices: submitting
-the form calls the existing plan service and never starts an appliance.
+The separate **Energy Planner Card** dashboard package presents a compact chart
+of the adjusted or spot price timeline, fixed monthly estimate, model status,
+latest plan, and a collapsed plan-only appliance form. It is read-only with
+respect to devices: submitting the form calls the existing plan service and
+never starts an appliance.
 Add it to a dashboard using the generated entity IDs:
 
 ```yaml
@@ -102,8 +110,18 @@ execution definitions to dashboards and automations.
 The **Plan schedule** calendar exposes that same latest recommendation as a
 calendar event with its proposed window, cost, saving, and price-source details.
 These native entities provide the dashboard-facing data contract. The card
-shows up to 48 timeline points and remains useful when only price data is
+shows up to 192 timeline points and remains useful when only price data is
 available.
+
+### Migrating from the bundled card
+
+Older integration releases registered `/energy_planner/energy-planner-card.js`
+automatically. After installing the standalone card, remove that legacy URL
+from **Settings → Dashboards → Resources** if it is still present, keep the
+existing `custom:energy-planner-card` YAML, and reload the browser. The backend
+still serves the legacy path for dashboards that explicitly configured it, but
+new card installs should use the Marketplace Dashboard package so frontend
+updates do not require an integration restart.
 
 `energy_planner.save_appliance_profile` stores a reusable profile, and
 `energy_planner.plan_appliance_profile` can run it in `plan_only` mode or

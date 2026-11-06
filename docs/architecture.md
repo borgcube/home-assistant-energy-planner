@@ -3,8 +3,10 @@
 Energy Planner keeps external integrations behind small internal contracts so
 the planning engine and dashboard do not contain supplier- or vendor-specific
 logic. The integration exposes normalized price data, tariff calculations,
-provider context, persistent plan history, profiles, notifications, a native
-calendar, and a dashboard card. Device execution remains opt-in and fail-closed.
+provider context, persistent plan history, profiles, notifications, and a
+native calendar. The companion [Energy Planner Card](https://github.com/borgcube/lovelace-energy-planner-card)
+consumes those entities as a separate Marketplace Dashboard package. Device
+execution remains opt-in and fail-closed.
 
 ## Contracts
 
@@ -55,14 +57,17 @@ execution.
 ## Dashboard, persistence, and history
 
 The current dashboard-facing contract is the adjusted price sensor's `data`
-attribute, the Last Plan sensor, and the Plan schedule calendar. The included
-`www/energy-planner-card.js` renders those entities as a native Lovelace card
-with a 24–48 hour timeline, model status, fixed-cost summary, latest plan, and
-a plan-only request form. It does not expose a device-control API.
+attribute, the Last Plan sensor, and the Plan schedule calendar. The separate
+`lovelace-energy-planner-card` repository renders those entities as a native
+Lovelace card with a 24–48 hour timeline, model status, fixed-cost summary,
+latest plan, and a plan-only request form. It does not expose a device-control
+API. The integration retains its old static card path for explicitly configured
+legacy resources, but no longer injects that path into every dashboard.
 
 The coordinator adds optional battery/solar context to the model status and
-the native Battery context and Solar forecast sensors. The card remains useful
-with price-only data while optional inputs are unavailable.
+the native Battery context and Solar forecast sensors. The card renders the
+timeline as a compact SVG chart with an optional spot-price comparison and
+remains useful with price-only data while optional inputs are unavailable.
 
 The versioned storage boundary records the latest plan, a bounded plan history,
 and appliance profile data through Home Assistant's storage facility. This is
