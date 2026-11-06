@@ -45,6 +45,10 @@ attribute. Every entry includes `start_time`, `end_time`, `spot_price_per_kwh`,
 and adjusted `price_per_kwh` values. Home Assistant generates the exact entity
 ID from the device and area name, so use the entity picker when referencing it.
 
+The **Fixed monthly electricity cost** sensor exposes the configured recurring
+charge in EUR. This value stays separate from hourly scheduling prices and is
+reported with `billing_period: month`.
+
 The integration also creates a **Cheapest 1-hour price window** timestamp
 sensor. Its timestamp is the start of the cheapest complete one-hour window in
 the next 24 hours; attributes include the end time, average price, source, and

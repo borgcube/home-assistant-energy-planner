@@ -46,6 +46,7 @@ async def async_setup_entry(
         [
             AdjustedPriceTimelineSensor(entry.runtime_data, entry),
             CheapestPriceWindowSensor(entry.runtime_data, entry),
+            FixedMonthlyCostSensor(entry.runtime_data, entry),
         ]
     )
 
@@ -187,5 +188,54 @@ class CheapestPriceWindowSensor(
             "model_status": MODEL_STATUS_PRICE_ONLY,
             "source_entity": source_entity,
             "source_format": self.coordinator.data.source_format,
+            "last_updated": datetime.now().astimezone().isoformat(),
+        }
+
+
+class FixedMonthlyCostSensor(
+    CoordinatorEntity[EnergyPlannerCoordinator], SensorEntity
+):
+    """Expose fixed electricity charges separately from hourly prices."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Fixed monthly electricity cost"
+    _attr_native_unit_of_measurement = "EUR"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_icon = "mdi:receipt-text-outline"
+
+    def __init__(
+        self, coordinator: EnergyPlannerCoordinator, entry: ConfigEntry
+    ) -> None:
+        """Initialize the fixed-cost sensor."""
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_fixed_monthly_cost"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=PLANNER_NAME,
+            manufacturer="Energy Planner",
+            model="Hourly price planner",
+        )
+
+    @property
+    def native_value(self) -> float:
+        """Return the configured recurring monthly cost."""
+        return float(
+            self._entry.options.get(
+                CONF_FIXED_MONTHLY_COST,
+                self._entry.data[CONF_FIXED_MONTHLY_COST],
+            )
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Describe the fixed charge without adding it to hourly prices."""
+        source_entity = self._entry.options.get(
+            CONF_PRICE_ENTITY, self._entry.data[CONF_PRICE_ENTITY]
+        )
+        return {
+            "billing_period": "month",
+            "model_status": MODEL_STATUS_PRICE_ONLY,
+            "source_entity": source_entity,
             "last_updated": datetime.now().astimezone().isoformat(),
         }
