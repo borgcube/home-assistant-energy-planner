@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Energy Planner",
+        "description": "Choose the hourly electricity-price sensor and configure variable price adjustments.",
+        "data": {
+          "price_entity": "Hourly electricity price sensor",
+          "supplier_markup": "Supplier markup (EUR/kWh)",
+          "variable_grid_cost": "Variable grid and tax cost (EUR/kWh)",
+          "fixed_monthly_cost": "Fixed monthly electricity cost (EUR)"
+        }
+      }
+    },
+    "error": {},
+    "abort": {
+      "already_configured": "This hourly electricity price sensor is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "price_entity": "Hourly electricity price sensor",
+          "supplier_markup": "Supplier markup (EUR/kWh)",
+          "variable_grid_cost": "Variable grid and tax cost (EUR/kWh)",
+          "fixed_monthly_cost": "Fixed monthly electricity cost (EUR)"
+        }
+      }
+    }
+  }
+}

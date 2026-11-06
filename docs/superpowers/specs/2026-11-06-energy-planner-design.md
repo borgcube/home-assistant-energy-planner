@@ -33,18 +33,23 @@ hourly spot prices. It does not fetch the electricity market API separately.
 
 ## Architecture
 
-### 1. Data adapters
+### 1. Data adapters and internal contracts
 
 Adapters convert source entities into a common hourly model:
 
 `spot price -> variable all-in import price -> solar forecast -> battery state -> recommendation`
 
 - The ENTSO hourly data is normalized to hourly timestamps and EUR/kWh.
+- Every provider is an interchangeable `PriceProviderAdapter`; pricing logic
+  consumes its vendor-neutral hourly timeline rather than provider attributes.
 - Configured variable cost components are applied to each hourly spot price.
 - Fixed monthly values remain separate from the hourly decision price.
-- Forecast.Solar provides forecast production when available.
-- Enphase provides state of charge, capacity, and charging constraints when
-  available.
+- Every battery and solar source is an interchangeable `BatteryAdapter` or
+  `SolarForecastAdapter`. Forecast.Solar and Enphase are initial adapters, not
+  dependencies of the planner.
+- A `CostModel` owns provider- and tariff-specific import/export calculations.
+  The initial flat-rate model can be replaced with time-of-use, percentage, or
+  regional tax models without changing the optimiser or card.
 
 ### 2. Planner
 
