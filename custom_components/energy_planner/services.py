@@ -26,6 +26,7 @@ from .const import (
     SERVICE_DURATION_MINUTES,
     SERVICE_EARLIEST_START,
     SERVICE_ENABLED,
+    SERVICE_ENERGY_ENTITY,
     SERVICE_ENTRY_ID,
     SERVICE_EXECUTION_MODE,
     SERVICE_LOAD_GROUP,
@@ -38,6 +39,7 @@ from .const import (
     SERVICE_START_SERVICE,
     SERVICE_VERIFIED_DELAYED_START,
 )
+from .energy_usage import async_estimate_appliance_usage
 from .planning import AppliancePlanRequest, ScheduledWindow, find_lowest_cost_window
 from .pricing import PriceTimeline
 from .profiles import ApplianceProfile
@@ -67,9 +69,10 @@ PLAN_APPLIANCE_SCHEMA = vol.Schema(
         ),
         vol.Required(SERVICE_DEADLINE): cv.datetime,
         vol.Optional(SERVICE_EARLIEST_START): cv.datetime,
-        vol.Required(SERVICE_AVERAGE_POWER_KW): vol.All(
+        vol.Optional(SERVICE_AVERAGE_POWER_KW): vol.All(
             vol.Coerce(float), vol.Range(min=0.001, max=100)
         ),
+        vol.Optional(SERVICE_ENERGY_ENTITY): cv.entity_id,
         vol.Optional(SERVICE_ENTRY_ID): cv.string,
     }
 )
@@ -99,9 +102,10 @@ SAVE_APPLIANCE_PROFILE_SCHEMA = vol.Schema(
         vol.Required(SERVICE_DURATION_MINUTES): vol.All(
             vol.Coerce(int), vol.Range(min=15, max=24 * 60), _quarter_hour_duration
         ),
-        vol.Required(SERVICE_AVERAGE_POWER_KW): vol.All(
+        vol.Optional(SERVICE_AVERAGE_POWER_KW): vol.All(
             vol.Coerce(float), vol.Range(min=0.001, max=100)
         ),
+        vol.Optional(SERVICE_ENERGY_ENTITY): cv.entity_id,
         vol.Optional(SERVICE_EXECUTION_MODE, default=EXECUTION_PLAN_ONLY): vol.In(
             (EXECUTION_PLAN_ONLY, EXECUTION_NOTIFY_AT_START, EXECUTION_AUTOMATIC)
         ),
@@ -147,6 +151,7 @@ def build_plan_response(
     execution_mode: str = EXECUTION_PLAN_ONLY,
     model_status: str | None = None,
     profile_id: str | None = None,
+    usage_summary: dict[str, Any] | None = None,
 ) -> ServiceResponse:
     """Build a JSON-safe, plan-only response for a service caller."""
     response: dict[str, Any] = {
@@ -171,6 +176,8 @@ def build_plan_response(
         response["target_energy_kwh"] = target_energy_kwh
     if profile_id is not None:
         response[SERVICE_PROFILE_ID] = profile_id
+    if usage_summary:
+        response.update(usage_summary)
     if window is None:
         response["reason"] = "No contiguous price window meets the request"
         return response
@@ -192,6 +199,28 @@ def build_plan_response(
         }
     )
     return response
+
+
+async def _resolve_average_power_kw(
+    hass: HomeAssistant,
+    *,
+    energy_entity: str | None,
+    fallback_power_kw: float | None,
+) -> tuple[float, dict[str, Any] | None]:
+    """Resolve manual or history-derived appliance power for a plan."""
+    if energy_entity:
+        try:
+            usage_summary = await async_estimate_appliance_usage(hass, energy_entity)
+        except HomeAssistantError:
+            if fallback_power_kw is None:
+                raise
+        else:
+            return float(usage_summary["historical_average_power_kw"]), usage_summary
+    if fallback_power_kw is None:
+        raise HomeAssistantError(
+            "Provide average_power_kw or select an energy_entity with usable history"
+        )
+    return float(fallback_power_kw), None
 
 
 def _select_coordinator(
@@ -225,11 +254,17 @@ async def async_plan_appliance(
     hass: HomeAssistant, call: ServiceCall
 ) -> ServiceResponse:
     """Return a cheapest appliance plan without controlling a device."""
+    average_power_kw, usage_summary = await _resolve_average_power_kw(
+        hass,
+        energy_entity=call.data.get(SERVICE_ENERGY_ENTITY),
+        fallback_power_kw=call.data.get(SERVICE_AVERAGE_POWER_KW),
+    )
     return await _async_plan(
         hass,
         call,
         appliance_id=call.data[SERVICE_APPLIANCE_ID],
-        average_power_kw=call.data[SERVICE_AVERAGE_POWER_KW],
+        average_power_kw=average_power_kw,
+        usage_summary=usage_summary,
     )
 
 
@@ -252,12 +287,19 @@ async def async_plan_battery_charge(
 async def async_save_appliance_profile(hass: HomeAssistant, call: ServiceCall) -> None:
     """Save a reusable appliance profile without executing anything."""
     coordinator, _entry_id = _select_coordinator(hass, call.data.get(SERVICE_ENTRY_ID))
+    energy_entity = call.data.get(SERVICE_ENERGY_ENTITY)
+    average_power_kw, _usage_summary = await _resolve_average_power_kw(
+        hass,
+        energy_entity=energy_entity,
+        fallback_power_kw=call.data.get(SERVICE_AVERAGE_POWER_KW),
+    )
     coordinator.set_profile(
         ApplianceProfile(
             profile_id=call.data[SERVICE_PROFILE_ID],
             name=call.data[SERVICE_PROFILE_NAME],
             duration_minutes=call.data[SERVICE_DURATION_MINUTES],
-            average_power_kw=call.data[SERVICE_AVERAGE_POWER_KW],
+            average_power_kw=average_power_kw,
+            energy_entity=energy_entity,
             execution_mode=call.data[SERVICE_EXECUTION_MODE],
             start_entity=call.data.get(SERVICE_START_ENTITY),
             start_service=call.data.get(SERVICE_START_SERVICE),
@@ -294,11 +336,17 @@ async def async_plan_appliance_profile(
         )
     if not profile.enabled:
         raise HomeAssistantError(f"Appliance profile {profile.profile_id} is disabled")
+    average_power_kw, usage_summary = await _resolve_average_power_kw(
+        hass,
+        energy_entity=profile.energy_entity,
+        fallback_power_kw=profile.average_power_kw,
+    )
     response = await _async_plan(
         hass,
         call,
         appliance_id=profile.profile_id,
-        average_power_kw=profile.average_power_kw,
+        average_power_kw=average_power_kw,
+        usage_summary=usage_summary,
         execution_mode=profile.execution_mode,
         profile_id=profile.profile_id,
         duration_minutes=profile.duration_minutes,
@@ -319,6 +367,7 @@ async def _async_plan(
     execution_mode: str = EXECUTION_PLAN_ONLY,
     profile_id: str | None = None,
     duration_minutes: int | None = None,
+    usage_summary: dict[str, Any] | None = None,
 ) -> ServiceResponse:
     """Build a plan response from the shared, read-only planning path."""
     coordinator, entry_id = _select_coordinator(hass, call.data.get(SERVICE_ENTRY_ID))
@@ -372,6 +421,7 @@ async def _async_plan(
         execution_mode=execution_mode,
         model_status=coordinator.model_status if window else None,
         profile_id=profile_id,
+        usage_summary=usage_summary,
     )
     if plan_type == "battery_charge" and coordinator.battery_snapshot is not None:
         response["battery_state_of_charge"] = snapshot.state_of_charge

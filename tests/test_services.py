@@ -24,6 +24,16 @@ def test_plan_service_schema_and_response_are_read_only() -> None:
             "average_power_kw": "1.0",
         }
     )
+    meter_request = PLAN_APPLIANCE_SCHEMA(
+        {
+            "appliance_id": "Washing machine",
+            "duration_minutes": 60,
+            "deadline": "2026-11-06T04:00:00+01:00",
+            "energy_entity": "sensor.washing_machine_energy",
+        }
+    )
+    assert meter_request["energy_entity"] == "sensor.washing_machine_energy"
+    assert "average_power_kw" not in meter_request
     local_timezone = datetime.now().astimezone().tzinfo
     assert _ensure_timezone(
         datetime(2026, 11, 6, 4), local_timezone
@@ -61,7 +71,15 @@ def test_plan_service_schema_and_response_are_read_only() -> None:
     window = find_lowest_cost_window(timeline, request)
 
     response = build_plan_response(
-        timeline, request, window, source_entity="sensor.source"
+        timeline,
+        request,
+        window,
+        source_entity="sensor.source",
+        usage_summary={
+            "energy_entity": "sensor.dishwasher_energy",
+            "historical_average_power_kw": 0.8,
+            "historical_utilization_percent": 12.5,
+        },
     )
 
     assert response["status"] == "recommended"
@@ -70,6 +88,8 @@ def test_plan_service_schema_and_response_are_read_only() -> None:
     assert response["end_time"] == "2026-11-06T02:30:00+01:00"
     assert response["estimated_cost"] == pytest.approx(0.20)
     assert response["resolution_minutes"] == 60
+    assert response["energy_entity"] == "sensor.dishwasher_energy"
+    assert response["historical_utilization_percent"] == pytest.approx(12.5)
 
 
 def test_plan_service_reports_unavailable_without_a_valid_window() -> None:
@@ -172,6 +192,17 @@ def test_profile_services_keep_plan_only_as_the_default() -> None:
     )
     assert profile["execution_mode"] == "plan_only"
     assert profile["verified_delayed_start"] is False
+
+    meter_profile = SAVE_APPLIANCE_PROFILE_SCHEMA(
+        {
+            "profile_id": "washing_machine",
+            "name": "Washing machine",
+            "duration_minutes": 60,
+            "energy_entity": "sensor.washing_machine_energy",
+        }
+    )
+    assert meter_profile["energy_entity"] == "sensor.washing_machine_energy"
+    assert "average_power_kw" not in meter_profile
 
     plan = PLAN_APPLIANCE_PROFILE_SCHEMA(
         {

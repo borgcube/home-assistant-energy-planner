@@ -25,6 +25,7 @@ class ApplianceProfile:
     power_entity: str | None = None
     power_threshold_w: float = 50.0
     load_group: str | None = None
+    energy_entity: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return JSON-safe profile data."""
@@ -38,6 +39,7 @@ class ApplianceProfile:
             name=str(data.get("name") or data["profile_id"]),
             duration_minutes=int(data["duration_minutes"]),
             average_power_kw=float(data["average_power_kw"]),
+            energy_entity=data.get("energy_entity"),
             execution_mode=str(data.get("execution_mode", EXECUTION_PLAN_ONLY)),
             start_entity=data.get("start_entity"),
             start_service=data.get("start_service"),

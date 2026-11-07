@@ -8,6 +8,7 @@ def test_profile_round_trip_keeps_execution_and_monitoring_settings() -> None:
         name="Dishwasher",
         duration_minutes=90,
         average_power_kw=1.2,
+        energy_entity="sensor.dishwasher_energy",
         execution_mode="notify_at_start",
         power_entity="sensor.dishwasher_power",
         power_threshold_w=75,

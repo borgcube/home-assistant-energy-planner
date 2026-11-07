@@ -74,10 +74,12 @@ the next 24 hours; attributes include the end time, average price, source, and
 any device.
 
 The `energy_planner.plan_appliance` action accepts an appliance label, a
-duration in 15-minute increments, a finish-by deadline, and expected average
-power. Its
-response contains the least-cost contiguous window, estimated cost, and
-estimated saving versus running at the current price. It is explicitly
+duration in 15-minute increments, and a finish-by deadline. Provide
+`average_power_kw` for a custom appliance, or provide an energy sensor in
+`energy_entity` to estimate typical active power and utilization from its
+recorded history. Its response contains the least-cost contiguous window,
+estimated cost, estimated saving versus running at the current price, and the
+history summary when an energy sensor was selected. It is explicitly
 `execution_mode: plan_only`; it does not call or schedule any device.
 
 The `energy_planner.plan_battery_charge` action accepts a charge duration,
@@ -90,9 +92,12 @@ battery headroom and forecast context. Missing optional sources retain a safe
 
 The separate **Energy Planner Card** dashboard package presents a compact chart
 of the adjusted or spot price timeline, fixed monthly estimate, model status,
-latest plan, and a collapsed plan-only appliance form. It is read-only with
-respect to devices: submitting the form calls the existing plan service and
-never starts an appliance.
+latest plan, and a collapsed plan-only appliance form. The form lists matching
+Home Assistant energy sensors so a monitored Washing, Dryer, or Oven meter can
+provide historical usage; **Custom appliance** keeps the manual average-power
+path for devices without an energy meter. It is read-only with respect to
+devices: submitting the form calls the existing plan service and never starts
+an appliance.
 Add it to a dashboard using the generated entity IDs:
 
 ```yaml

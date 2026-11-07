@@ -32,14 +32,21 @@ plan_appliance:
         datetime: {}
     average_power_kw:
       name: Average power (kW)
-      description: Expected appliance power used for the cost estimate.
-      required: true
+      description: Optional fallback; omit it when an energy meter is selected.
+      required: false
       selector:
         number:
           min: 0.001
           max: 100
           step: 0.001
           mode: box
+    energy_entity:
+      name: Device energy meter
+      description: Energy sensor used to estimate average power from history.
+      required: false
+      selector:
+        entity:
+          domain: sensor
     entry_id:
       name: Energy Planner entry ID
       description: Optional when exactly one Energy Planner entry is loaded.
@@ -116,13 +123,21 @@ save_appliance_profile:
           mode: box
     average_power_kw:
       name: Average power (kW)
-      required: true
+      description: Optional fallback; omit it when an energy meter is selected.
+      required: false
       selector:
         number:
           min: 0.001
           max: 100
           step: 0.001
           mode: box
+    energy_entity:
+      name: Device energy meter
+      description: Energy sensor used to estimate average power from history.
+      required: false
+      selector:
+        entity:
+          domain: sensor
     execution_mode:
       name: Execution mode
       description: Plan only, notify at start, or a strictly verified delayed-start action.
