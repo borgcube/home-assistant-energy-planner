@@ -1,5 +1,9 @@
 # Home Assistant Energy Planner
 
+<p align="center">
+  <img src="logo.png" alt="Energy Planner integration logo" width="160">
+</p>
+
 A Home Assistant integration and dashboard card for understanding
 electricity prices, planning appliance operation, and safely optimising battery
 grid charging.
